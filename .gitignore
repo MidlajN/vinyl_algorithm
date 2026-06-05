@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.env/
+.venv/
+venv/
+
+# Local environment values
+.env.local
+.env.*
+!.env.example
+
+# Debug/generated artifacts
+debug/*.png
+debug/*.jpg
+debug/*.jpeg
+debug/*.webp
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
