@@ -651,6 +651,14 @@ from core.label import (
     detect_label_ring
 )
 
+from core.vinyl_normalize import (
+    normalize_vinyl
+)
+
+from core.geometry_refine import (
+    refine_geometry
+)
+
 def detect_initial_disc(
     image,
     blur
@@ -709,38 +717,82 @@ def main():
         rectified
     )
 
+    normalized = normalize_vinyl(
+        rectified,
+        outer
+    )
+
     outer = (
         detect_outer_ellipse(
             gray
         )
     )
 
-
-    rx = int(
-        outer["center"][0]
+    label = detect_label_ring(
+        normalized,
+        outer
     )
 
-    ry = int(
-        outer["center"][1]
+    refined = refine_geometry(
+        outer,
+        label
     )
 
-    rr = int(
-        outer["radius_px"]
+    outer_cx, outer_cy = (
+        outer["center"]
     )
 
-    # spindle = (
-    #     detect_spindle_hole(
-    #         gray,
-    #         rx,
-    #         ry,
-    #         rr
-    #     )
+    label_cx, label_cy = (
+        label["center"]
+    )
+
+    blended_center = (
+        (
+            outer_cx * 0.65
+            +
+            label_cx * 0.35
+        ),
+        (
+            outer_cy * 0.65
+            +
+            label_cy * 0.35
+        )
+    )
+
+    # spindle = {
+    #     "x": blended_center[0],
+    #     "y": blended_center[1],
+    #     "radius_px": outer["radius_px"]
+    # }
+
+    # rx = int(
+    #     outer["center"][0]
     # )
 
+    # ry = int(
+    #     outer["center"][1]
+    # )
+
+    # rr = int(
+    #     outer["radius_px"]
+    # )
+
+    # spindle = {
+    #     "x": rx,
+    #     "y": ry,
+    #     "radius_px": rr
+    # }
+
     spindle = {
-        "x": rx,
-        "y": ry,
-        "radius_px": rr
+        "x": refined[
+            "spindle_x"
+        ],
+
+        "y": refined[
+            "spindle_y"
+        ],
+
+        "radius_px": 4
     }
 
     outer = (
@@ -791,11 +843,6 @@ def main():
         outer_playable_radius_px
     )
 
-    label = detect_label_ring(
-        gray,
-        outer
-    )
-
     # label = {
     #     "radius_px":
     #         boundaries[
@@ -804,6 +851,71 @@ def main():
     # }
 
     debug = rectified.copy()
+
+    # -------------------------
+    # outer center
+    # -------------------------
+
+    cv.circle(
+        debug,
+        (
+            int(
+                outer["center"][0]
+            ),
+            int(
+                outer["center"][1]
+            )
+        ),
+        8,
+        (0,255,0),
+        -1
+    )
+
+    # -------------------------
+    # label center
+    # -------------------------
+
+    cv.circle(
+        debug,
+        (
+            int(
+                label["center"][0]
+            ),
+            int(
+                label["center"][1]
+            )
+        ),
+        8,
+        (255,255,0),
+        -1
+    )
+
+    # -------------------------
+    # refined spindle
+    # -------------------------
+
+    cv.circle(
+        debug,
+        (
+            int(
+                refined[
+                    "spindle_x"
+                ]
+            ),
+            int(
+                refined[
+                    "spindle_y"
+                ]
+            )
+        ),
+        8,
+        (0,0,255),
+        -1
+    )
+
+    # -------------------------
+    # detected label
+    # -------------------------
 
     cv.circle(
         debug,
@@ -816,32 +928,45 @@ def main():
             )
         ),
         int(
-            label["radius_px"]
+            label[
+                "radius_px"
+            ]
         ),
         (255,255,0),
         3
     )
 
+    # -------------------------
+    # expected label
+    # -------------------------
+
     cv.circle(
         debug,
         (
             int(
-                label["center"][0]
+                refined[
+                    "center_x"
+                ]
             ),
             int(
-                label["center"][1]
+                refined[
+                    "center_y"
+                ]
             )
         ),
-        6,
-        (0,0,255),
-        -1
+        int(
+            refined[
+                "expected_label_radius_px"
+            ]
+        ),
+        (255,0,255),
+        2
     )
 
     cv.imshow(
-        "label detection",
+        "geometry refinement",
         debug
     )
-    
     geometry = (
         build_geometry(
             spindle,
