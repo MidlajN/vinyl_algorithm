@@ -631,6 +631,25 @@ from debug.visualizer import (
     visualize
 )
 
+from core.groove_profile import (
+    build_groove_profile
+)
+
+from core.groove_mask import (
+    create_groove_mask
+)
+
+from debug.profile_debug import (
+    show_profiles
+)
+
+from core.rectify import (
+    rectify_disc
+)
+
+from core.label import (
+    detect_label_ring
+)
 
 def detect_initial_disc(
     image,
@@ -650,15 +669,6 @@ def detect_initial_disc(
             image.shape[0] * 0.48
         )
     )
-
-    # circles = circles[0]
-
-    # largest = max(
-    #     circles,
-    #     key=lambda c: c[2]
-    # )
-
-    # return largest
     circles = np.round(
         circles[0]
     ).astype(int)
@@ -684,24 +694,19 @@ def main():
         image
     )
 
-    rx, ry, rr = (
-        detect_initial_disc(
-            image,
-            blur
+    outer = (
+        detect_outer_ellipse(
+            gray
         )
     )
 
-    rx = int(rx)
-    ry = int(ry)
-    rr = int(rr)
+    rectified = rectify_disc(
+        image,
+        outer
+    )
 
-    spindle = (
-        detect_spindle_hole(
-            gray,
-            rx,
-            ry,
-            rr
-        )
+    gray, blur = preprocess(
+        rectified
     )
 
     outer = (
@@ -710,13 +715,39 @@ def main():
         )
     )
 
-    # label = (
-    #     detect_label_ellipse(
-    #         image,
-    #         spindle,
+
+    rx = int(
+        outer["center"][0]
+    )
+
+    ry = int(
+        outer["center"][1]
+    )
+
+    rr = int(
+        outer["radius_px"]
+    )
+
+    # spindle = (
+    #     detect_spindle_hole(
+    #         gray,
+    #         rx,
+    #         ry,
     #         rr
     #     )
     # )
+
+    spindle = {
+        "x": rx,
+        "y": ry,
+        "radius_px": rr
+    }
+
+    outer = (
+        detect_outer_ellipse(
+            gray
+        )
+    )
 
     profile = (
         build_radial_profile(
@@ -743,8 +774,8 @@ def main():
             ],
             outer[
                 "radius_px"
-            ]
-            * 0.98
+            ],
+            outer
         )
     )
 
@@ -760,12 +791,56 @@ def main():
         outer_playable_radius_px
     )
 
-    label = {
-        "radius_px":
-            boundaries[
-                "label_radius_px"
-            ]
-    }
+    label = detect_label_ring(
+        gray,
+        outer
+    )
+
+    # label = {
+    #     "radius_px":
+    #         boundaries[
+    #             "label_radius_px"
+    #         ]
+    # }
+
+    debug = rectified.copy()
+
+    cv.circle(
+        debug,
+        (
+            int(
+                label["center"][0]
+            ),
+            int(
+                label["center"][1]
+            )
+        ),
+        int(
+            label["radius_px"]
+        ),
+        (255,255,0),
+        3
+    )
+
+    cv.circle(
+        debug,
+        (
+            int(
+                label["center"][0]
+            ),
+            int(
+                label["center"][1]
+            )
+        ),
+        6,
+        (0,0,255),
+        -1
+    )
+
+    cv.imshow(
+        "label detection",
+        debug
+    )
     
     geometry = (
         build_geometry(
@@ -774,6 +849,22 @@ def main():
             label,
             boundaries
         )
+    )
+
+    groove_mask = create_groove_mask(
+        gray.shape,
+        geometry
+    )
+
+    groove_only = cv.bitwise_and(
+        gray,
+        gray,
+        mask=groove_mask
+    )
+
+    cv.imwrite(
+        "debug/groove_only.jpg",
+        groove_only
     )
 
     separators = detect_separators(
@@ -792,6 +883,15 @@ def main():
     boundaries[
         "separators"
     ] = separators
+
+    profiles = build_groove_profile(
+        groove_only,
+        geometry
+    )
+
+    show_profiles(
+        profiles
+    )
 
     print(
         label["radius_px"]
@@ -814,7 +914,7 @@ def main():
     )
 
     visualize(
-        image,
+        rectified,
         outer,
         label,
         spindle,

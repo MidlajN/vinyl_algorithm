@@ -1,5 +1,105 @@
 import cv2 as cv
 import matplotlib.pyplot as plt
+import numpy as np
+
+
+def _projected_ring_points(
+    outer,
+    radius_px,
+    points=720
+):
+    (
+        center,
+        size,
+        angle
+    ) = outer[
+        "ellipse"
+    ]
+
+    scale = (
+        radius_px
+        / outer[
+            "radius_px"
+        ]
+    )
+
+    rotation = np.deg2rad(
+        angle
+    )
+
+    theta = np.linspace(
+        0,
+        2 * np.pi,
+        points,
+        endpoint=False
+    )
+
+    x = (
+        size[0]
+        * scale
+        / 2.0
+        * np.cos(theta)
+    )
+
+    y = (
+        size[1]
+        * scale
+        / 2.0
+        * np.sin(theta)
+    )
+
+    projected_x = (
+        center[0]
+        + x
+        * np.cos(rotation)
+        - y
+        * np.sin(rotation)
+    )
+
+    projected_y = (
+        center[1]
+        + x
+        * np.sin(rotation)
+        + y
+        * np.cos(rotation)
+    )
+
+    return np.round(
+        np.stack(
+            [
+                projected_x,
+                projected_y
+            ],
+            axis=1
+        )
+    ).astype(
+        np.int32
+    ).reshape(
+        -1,
+        1,
+        2
+    )
+
+
+def _draw_projected_ring(
+    image,
+    outer,
+    radius_px,
+    color,
+    thickness
+):
+    cv.polylines(
+        image,
+        [
+            _projected_ring_points(
+                outer,
+                radius_px
+            )
+        ],
+        True,
+        color,
+        thickness
+    )
 
 
 def visualize(
@@ -27,30 +127,20 @@ def visualize(
     # groove-derived label radius
     # -------------------------
 
-    cv.circle(
+    _draw_projected_ring(
         debug,
-        (
-            spindle["x"],
-            spindle["y"]
-        ),
-        int(
-            label["radius_px"]
-        ),
+        outer,
+        label["radius_px"],
         (255, 0, 0),
         4
     )
 
-    cv.circle(
+    _draw_projected_ring(
         debug,
-        (
-            spindle["x"],
-            spindle["y"]
-        ),
-        int(
-            boundaries[
-                "inner_playable_radius_px"
-            ]
-        ),
+        outer,
+        boundaries[
+            "inner_playable_radius_px"
+        ],
         (255, 255, 0),
         3
     )
@@ -84,20 +174,9 @@ def visualize(
             ]
         )
 
-        cv.circle(
+        _draw_projected_ring(
             debug,
-            (
-                int(
-                    spindle[
-                        "x"
-                    ]
-                ),
-                int(
-                    spindle[
-                        "y"
-                    ]
-                )
-            ),
+            outer,
             outer_playable,
             (
                 255,
@@ -111,25 +190,12 @@ def visualize(
         "separators",
         []
     ):
-        cv.circle(
+        _draw_projected_ring(
             debug,
-            (
-                int(
-                    spindle[
-                        "x"
-                    ]
-                ),
-                int(
-                    spindle[
-                        "y"
-                    ]
-                )
-            ),
-            int(
-                separator[
-                    "center_radius_px"
-                ]
-            ),
+            outer,
+            separator[
+                "center_radius_px"
+            ],
             (
                 255,
                 0,

@@ -118,23 +118,6 @@ def _detect_outer_playable_from_polar(
         ]
     )
 
-    if best_idx is None:
-        return float(
-            reverse_radii[
-                min(
-                    len(reverse_radii) - 1,
-                    lookahead
-                )
-            ]
-        )
-
-    return float(
-        reverse_radii[
-            best_idx
-        ]
-    )
-
-
 def _find_low_activity_runs(
     signal,
     threshold
@@ -172,6 +155,20 @@ def _separator_consistency(
     start_idx,
     end_idx
 ):
+    continuity = profile.get(
+        "separator_continuity"
+    )
+
+    if continuity is not None:
+        return float(
+            np.mean(
+                continuity[
+                    start_idx:
+                    end_idx + 1
+                ]
+            )
+        )
+
     texture_map = profile.get(
         "texture_map"
     )
@@ -219,13 +216,33 @@ def detect_separators(
         "radii"
     ]
 
-    signal = profile[
-        "smoothed"
-    ]
+    score = profile.get(
+        "separator_score",
+        1 - profile[
+            "smoothed"
+        ]
+    )
+
+    playable_span = (
+        outer_playable_radius_px
+        - inner_playable_radius_px
+    )
+
+    inner_margin = max(
+        8,
+        playable_span
+        * 0.04
+    )
+
+    outer_margin = max(
+        8,
+        playable_span
+        * 0.04
+    )
 
     playable_mask = (
-        (radii >= inner_playable_radius_px + 4)
-        & (radii <= outer_playable_radius_px - 4)
+        (radii >= inner_playable_radius_px + inner_margin)
+        & (radii <= outer_playable_radius_px - outer_margin)
     )
 
     indexes = np.where(
@@ -245,6 +262,25 @@ def detect_separators(
 
     candidates = []
 
+    playable_score = score[
+        start_idx:
+        end_idx + 1
+    ]
+
+    threshold = max(
+        np.percentile(
+            playable_score,
+            72
+        ),
+        np.median(
+            playable_score
+        )
+        + np.std(
+            playable_score
+        )
+        * 0.20
+    )
+
     neighborhood = max(
         12,
         len(indexes) // 18
@@ -254,54 +290,40 @@ def detect_separators(
         start_idx + neighborhood,
         end_idx - neighborhood
     ):
-        local = signal[
-            i - 2:
-            i + 3
+        local = score[
+            i - 3:
+            i + 4
         ]
 
-        if signal[i] != np.min(
+        if score[i] != np.max(
             local
         ):
             continue
 
-        left_peak = float(
-            np.max(
-                signal[
+        if score[i] < threshold:
+            continue
+
+        local_base = float(
+            np.percentile(
+                score[
                     i - neighborhood:
-                    i + 1
-                ]
-            )
-        )
-
-        right_peak = float(
-            np.max(
-                signal[
-                    i:
                     i + neighborhood + 1
-                ]
+                ],
+                25
             )
         )
 
-        valley = float(
-            signal[
-                i
-            ]
-        )
-
-        prominence = (
-            min(
-                left_peak,
-                right_peak
-            )
-            - valley
+        prominence = float(
+            score[i]
+            - local_base
         )
 
         if prominence < 0.05:
             continue
 
         cutoff = (
-            valley
-            + prominence
+            score[i]
+            - prominence
             * 0.45
         )
 
@@ -309,9 +331,9 @@ def detect_separators(
 
         while (
             band_start > start_idx
-            and signal[
+            and score[
                 band_start
-            ] <= cutoff
+            ] >= cutoff
         ):
             band_start -= 1
 
@@ -319,9 +341,9 @@ def detect_separators(
 
         while (
             band_end < end_idx
-            and signal[
+            and score[
                 band_end
-            ] <= cutoff
+            ] >= cutoff
         ):
             band_end += 1
 
@@ -346,15 +368,17 @@ def detect_separators(
             band_end
         )
 
-        if consistency < 0.12:
+        if consistency < 0.30:
             continue
 
         confidence = min(
             1.0,
-            0.30
+            score[i]
+            * 0.45
             + prominence
-            + consistency
             * 0.35
+            + consistency
+            * 0.20
         )
 
         if confidence < 0.43:
@@ -454,9 +478,11 @@ def detect_separators(
                 3
             ),
             "confidence": round(
-                candidate[
-                    "confidence"
-                ],
+                float(
+                    candidate[
+                        "confidence"
+                    ]
+                ),
                 3
             )
         }

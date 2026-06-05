@@ -24,7 +24,7 @@ def detect_outer_ellipse(gray):
         blur,
         0,
         255,
-        cv.THRESH_BINARY_INV
+        cv.THRESH_BINARY_INV 
         + cv.THRESH_OTSU
     )
 
@@ -53,16 +53,60 @@ def detect_outer_ellipse(gray):
     ellipse = cv.fitEllipse(
         largest
     )
+    
+    (
+        (cx, cy),
+        (major, minor),
+        angle
+    ) = ellipse
+
+    if minor > major:
+        major, minor = (
+            minor,
+            major
+        )
+
+        angle += 90
+    
+    ellipse = (
+        (cx, cy),
+        (
+            major,
+            minor
+        ),
+        angle
+    )
+
+    major_radius = major / 2
+    minor_radius = minor / 2
 
     return {
         "ellipse": ellipse,
         "mask": thresh,
+
+        "center": (
+            float(cx),
+            float(cy)
+        ),
+
+        "major_radius_px":
+            float(
+                major_radius
+            ),
+
+        "minor_radius_px":
+            float(
+                minor_radius
+            ),
+
+        "angle":
+            float(angle),
+
         "radius_px":
             ellipse_radius(
                 ellipse
             )
-    }
-
+}
 
 def detect_label_ellipse(
     image,

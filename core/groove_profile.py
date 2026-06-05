@@ -135,3 +135,124 @@ def build_radial_profile(
             max_radius
         )
     }
+
+import numpy as np
+import cv2 as cv
+
+from core.detectors.texture import (
+    compute_texture_energy1
+)
+
+from core.detectors.variance import (
+    compute_local_variance
+)
+
+from core.detectors.brightness import (
+    normalize_brightness
+)
+
+def normalize_profile(profile):
+    profile = profile.astype(np.float32)
+
+    min_val = np.min(profile)
+    max_val = np.max(profile)
+
+    if max_val - min_val < 1e-6:
+        return np.zeros_like(profile)
+
+    return (
+        profile - min_val
+    ) / (
+        max_val - min_val
+    )
+
+
+def radial_mean(
+    image,
+    center_x,
+    center_y,
+    max_radius
+):
+    h, w = image.shape[:2]
+
+    y, x = np.indices((h, w))
+
+    radius = np.sqrt(
+        (x - center_x) ** 2 +
+        (y - center_y) ** 2
+    ).astype(np.int32)
+
+    profile = np.zeros(max_radius)
+
+    for r in range(max_radius):
+        mask = radius == r
+
+        if np.any(mask):
+            profile[r] = np.mean(
+                image[mask]
+            )
+
+    return profile
+
+
+def build_groove_profile(
+    gray,
+    geometry
+):
+    cx = geometry["center_x"]
+    cy = geometry["center_y"]
+
+    max_radius = int(
+        geometry["outer_radius_px"]
+    )
+
+    brightness_map = normalize_brightness(
+        gray
+    )
+
+    texture_map = compute_texture_energy1(
+        gray
+    )
+
+    variance_map = compute_local_variance(
+        gray
+    )
+
+    brightness_profile = radial_mean(
+        brightness_map,
+        cx,
+        cy,
+        max_radius
+    )
+
+    texture_profile = radial_mean(
+        texture_map,
+        cx,
+        cy,
+        max_radius
+    )
+
+    variance_profile = radial_mean(
+        variance_map,
+        cx,
+        cy,
+        max_radius
+    )
+
+    brightness_profile = normalize_profile(
+        brightness_profile
+    )
+
+    texture_profile = normalize_profile(
+        texture_profile
+    )
+
+    variance_profile = normalize_profile(
+        variance_profile
+    )
+
+    return {
+        "brightness": brightness_profile,
+        "texture": texture_profile,
+        "variance": variance_profile
+    }

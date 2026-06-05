@@ -9,7 +9,7 @@ def detect_spindle_hole(
     estimated_radius
 ):
     search_radius = int(
-        estimated_radius * 0.15
+        estimated_radius * 0.08
     )
 
     x1 = max(

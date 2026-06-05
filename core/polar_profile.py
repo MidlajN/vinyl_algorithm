@@ -82,11 +82,169 @@ def _normalize_signal(
     )
 
 
+def _enhance_for_grooves(
+    gray
+):
+    clahe = cv.createCLAHE(
+        clipLimit=2.0,
+        tileGridSize=(8, 8)
+    )
+
+    equalized = clahe.apply(
+        gray
+    ).astype(
+        np.float32
+    )
+
+    background = cv.GaussianBlur(
+        equalized,
+        (0, 0),
+        31
+    )
+
+    enhanced = cv.normalize(
+        equalized - background + 128,
+        None,
+        0,
+        255,
+        cv.NORM_MINMAX
+    )
+
+    return enhanced.astype(
+        np.float32
+    )
+
+
+def _circle_maps(
+    radii,
+    theta,
+    spindle
+):
+    radius_grid = radii[
+        :,
+        None
+    ]
+
+    map_x = (
+        spindle["x"]
+        + radius_grid
+        * np.cos(theta)[None, :]
+    ).astype(
+        np.float32
+    )
+
+    map_y = (
+        spindle["y"]
+        + radius_grid
+        * np.sin(theta)[None, :]
+    ).astype(
+        np.float32
+    )
+
+    return map_x, map_y
+
+
+def _ellipse_maps(
+    radii,
+    theta,
+    outer
+):
+    (
+        (center_x, center_y),
+        (width, height),
+        angle
+    ) = outer[
+        "ellipse"
+    ]
+
+    outer_radius = outer[
+        "radius_px"
+    ]
+
+    rotation = np.deg2rad(
+        angle
+    )
+
+    axis_x = np.array(
+        [
+            np.cos(rotation),
+            np.sin(rotation)
+        ],
+        dtype=np.float32
+    )
+
+    axis_y = np.array(
+        [
+            -np.sin(rotation),
+            np.cos(rotation)
+        ],
+        dtype=np.float32
+    )
+
+    scale = (
+        radii
+        / outer_radius
+    )[
+        :,
+        None
+    ]
+
+    cos_theta = np.cos(
+        theta
+    )[
+        None,
+        :
+    ]
+
+    sin_theta = np.sin(
+        theta
+    )[
+        None,
+        :
+    ]
+
+    half_width = width / 2.0
+    half_height = height / 2.0
+
+    map_x = (
+        center_x
+        + scale
+        * (
+            half_width
+            * cos_theta
+            * axis_x[0]
+            + half_height
+            * sin_theta
+            * axis_y[0]
+        )
+    ).astype(
+        np.float32
+    )
+
+    map_y = (
+        center_y
+        + scale
+        * (
+            half_width
+            * cos_theta
+            * axis_x[1]
+            + half_height
+            * sin_theta
+            * axis_y[1]
+        )
+    ).astype(
+        np.float32
+    )
+
+    return map_x, map_y
+
+
 def build_polar_annulus_profile(
     gray,
     spindle,
     inner_radius,
     outer_radius,
+    outer=None,
     angles=1440
 ):
     min_radius = max(
@@ -113,26 +271,30 @@ def build_polar_annulus_profile(
         dtype=np.float32
     )
 
-    radius_grid = radii[:, None]
+    if outer is None:
+        map_x, map_y = _circle_maps(
+            radii,
+            theta,
+            spindle
+        )
 
-    map_x = (
-        spindle["x"]
-        + radius_grid
-        * np.cos(theta)[None, :]
-    ).astype(
-        np.float32
-    )
+        projection = "circle"
 
-    map_y = (
-        spindle["y"]
-        + radius_grid
-        * np.sin(theta)[None, :]
-    ).astype(
-        np.float32
+    else:
+        map_x, map_y = _ellipse_maps(
+            radii,
+            theta,
+            outer
+        )
+
+        projection = "ellipse"
+
+    enhanced = _enhance_for_grooves(
+        gray
     )
 
     polar = cv.remap(
-        gray.astype(np.float32),
+        enhanced,
         map_x,
         map_y,
         interpolation=cv.INTER_LINEAR,
@@ -238,8 +400,80 @@ def build_polar_annulus_profile(
         9
     )
 
+    radial_background = cv.blur(
+        normalized_polar,
+        (1, 41)
+    )
+
+    dark_map = np.maximum(
+        radial_background
+        - normalized_polar,
+        0
+    )
+
+    dark_signal = _robust_mean(
+        dark_map
+    )
+
+    dark_norm = _normalize_signal(
+        dark_signal
+    )
+
+    smoothness = (
+        1
+        - texture_norm
+    )
+
+    texture_reference = np.percentile(
+        texture,
+        35,
+        axis=0,
+        keepdims=True
+    )
+
+    dark_reference = np.percentile(
+        dark_map,
+        65,
+        axis=0,
+        keepdims=True
+    )
+
+    smooth_continuity = np.mean(
+        texture <= texture_reference,
+        axis=1
+    )
+
+    dark_continuity = np.mean(
+        dark_map >= dark_reference,
+        axis=1
+    )
+
+    separator_continuity = (
+        smooth_continuity
+        * 0.55
+        + dark_continuity
+        * 0.45
+    )
+
+    separator_score = (
+        smoothness
+        * 0.40
+        + dark_norm
+        * 0.35
+        + _normalize_signal(
+            separator_continuity
+        )
+        * 0.25
+    )
+
+    separator_score = _moving_average(
+        separator_score,
+        7
+    )
+
     return {
         "kind": "polar_annulus",
+        "projection": projection,
         "radii": radii,
         "raw": activity,
         "smoothed": smoothed,
@@ -248,5 +482,9 @@ def build_polar_annulus_profile(
         "texture_map": texture,
         "variance": variance_signal,
         "brightness": brightness_signal,
+        "darkness": dark_signal,
+        "separator_score": separator_score,
+        "separator_continuity": separator_continuity,
+        "normalized_polar": normalized_polar,
         "polar": polar
     }
