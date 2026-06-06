@@ -10,11 +10,11 @@ def detect_radial_boundary(
     center_offset=12,
     polarity="bright_to_dark",
     sample_count=720,
-    sample_offset=8
+    sample_offset=8,
+    radius_step=2
 ):
     """
-    Detect circular vinyl boundaries
-    using radial transition scoring.
+    Fast radial boundary detector.
 
     polarity:
 
@@ -28,6 +28,12 @@ def detect_radial_boundary(
     """
 
     cx0, cy0 = center
+
+    h, w = image.shape[:2]
+
+    # -------------------------
+    # radius search range
+    # -------------------------
 
     min_radius = int(
         expected_radius
@@ -45,6 +51,10 @@ def detect_radial_boundary(
         )
     )
 
+    # -------------------------
+    # precompute trig
+    # -------------------------
+
     angles = np.linspace(
         0,
         2 * np.pi,
@@ -52,10 +62,20 @@ def detect_radial_boundary(
         endpoint=False
     )
 
+    cosines = np.cos(
+        angles
+    ).astype(np.float32)
+
+    sines = np.sin(
+        angles
+    ).astype(np.float32)
+
     best_score = -1e9
     best = None
 
-    h, w = image.shape
+    # -------------------------
+    # center search
+    # -------------------------
 
     for dx in range(
         -center_offset,
@@ -70,119 +90,125 @@ def detect_radial_boundary(
             cx = cx0 + dx
             cy = cy0 + dy
 
+            center_distance = np.hypot(
+                dx,
+                dy
+            )
+
+            center_penalty = (
+                center_distance
+                * 0.15
+            )
+
+            # -------------------------
+            # radius search
+            # -------------------------
+
             for r in range(
                 min_radius,
-                max_radius + 1
+                max_radius + 1,
+                radius_step
             ):
 
-                inner_values = []
-                outer_values = []
+                inner_r = (
+                    r
+                    - sample_offset
+                )
 
-                for theta in angles:
+                outer_r = (
+                    r
+                    + sample_offset
+                )
 
-                    cos_t = np.cos(
-                        theta
-                    )
+                # -------------------------
+                # vectorized coordinates
+                # -------------------------
 
-                    sin_t = np.sin(
-                        theta
-                    )
+                x1 = (
+                    cx
+                    + inner_r
+                    * cosines
+                ).astype(np.int32)
 
-                    # ------------------
-                    # inside sample
-                    # ------------------
+                y1 = (
+                    cy
+                    + inner_r
+                    * sines
+                ).astype(np.int32)
 
-                    x1 = int(
-                        cx
-                        + (
-                            r
-                            - sample_offset
-                        )
-                        * cos_t
-                    )
+                x2 = (
+                    cx
+                    + outer_r
+                    * cosines
+                ).astype(np.int32)
 
-                    y1 = int(
-                        cy
-                        + (
-                            r
-                            - sample_offset
-                        )
-                        * sin_t
-                    )
+                y2 = (
+                    cy
+                    + outer_r
+                    * sines
+                ).astype(np.int32)
 
-                    # ------------------
-                    # outside sample
-                    # ------------------
+                # -------------------------
+                # bounds mask
+                # -------------------------
 
-                    x2 = int(
-                        cx
-                        + (
-                            r
-                            + sample_offset
-                        )
-                        * cos_t
-                    )
+                valid = (
+                    (x1 >= 0)
+                    & (x1 < w)
+                    & (y1 >= 0)
+                    & (y1 < h)
+                    & (x2 >= 0)
+                    & (x2 < w)
+                    & (y2 >= 0)
+                    & (y2 < h)
+                )
 
-                    y2 = int(
-                        cy
-                        + (
-                            r
-                            + sample_offset
-                        )
-                        * sin_t
-                    )
-
-                    if (
-                        0 <= x1 < w
-                        and
-                        0 <= y1 < h
-                        and
-                        0 <= x2 < w
-                        and
-                        0 <= y2 < h
-                    ):
-
-                        inner_values.append(
-                            image[
-                                y1,
-                                x1
-                            ]
-                        )
-
-                        outer_values.append(
-                            image[
-                                y2,
-                                x2
-                            ]
-                        )
+                valid_count = np.count_nonzero(
+                    valid
+                )
 
                 if (
-                    len(inner_values)
-                    < sample_count
-                    * 0.8
+                    valid_count
+                    < sample_count * 0.8
                 ):
                     continue
 
-                inner_values = np.array(
-                    inner_values
+                # -------------------------
+                # sample pixels
+                # -------------------------
+
+                # inner_values = image[
+                #     y1[valid],
+                #     x1[valid]
+                # ]
+
+                # outer_values = image[
+                #     y2[valid],
+                #     x2[valid]
+                # ]
+
+                valid_idx = np.where(
+                    valid
+                )[0]
+
+                inner_values = image[
+                    y1[valid],
+                    x1[valid]
+                ]
+
+                outer_values = image[
+                    y2[valid],
+                    x2[valid]
+                ]
+
+                angles_valid = (
+                    angles[valid_idx]
                 )
 
-                outer_values = np.array(
-                    outer_values
-                )
+                # -------------------------
+                # robust intensity levels
+                # -------------------------
 
-                # inner_mean = np.mean(
-                #     inner_values
-                # )
-
-                # outer_mean = np.mean(
-                #     outer_values
-                # )
-
-                # transition = (
-                #     outer_mean
-                #     - inner_mean
-                # )
                 inner_level = np.percentile(
                     inner_values,
                     30
@@ -198,13 +224,46 @@ def detect_radial_boundary(
                     - inner_level
                 )
 
-                # ------------------
-                # polarity
-                # ------------------
+                # -------------------------
+                # polarity scoring
+                # -------------------------
+
+                left_mask = (
+                    np.cos(
+                        angles_valid
+                    ) < 0
+                )
+
+                right_mask = (
+                    np.cos(
+                        angles_valid
+                    ) >= 0
+                )
+
+                left_transition = np.mean(
+                    outer_values[
+                        left_mask
+                    ]
+                    -
+                    inner_values[
+                        left_mask
+                    ]
+                )
+
+                right_transition = np.mean(
+                    outer_values[
+                        right_mask
+                    ]
+                    -
+                    inner_values[
+                        right_mask
+                    ]
+                )
 
                 if polarity == (
                     "dark_to_bright"
                 ):
+
                     score = (
                         transition
                     )
@@ -212,18 +271,20 @@ def detect_radial_boundary(
                 elif polarity == (
                     "bright_to_dark"
                 ):
+
                     score = (
                         -transition
                     )
 
                 else:
+
                     raise ValueError(
                         "invalid polarity"
                     )
 
-                # ------------------
+                # -------------------------
                 # robustness
-                # ------------------
+                # -------------------------
 
                 transition_std = np.std(
                     outer_values
@@ -235,44 +296,29 @@ def detect_radial_boundary(
                     * 0.25
                 )
 
-                # slight preference
-                # to expected radius
-
-                # radius_penalty = (
-                #     abs(
-                #         r
-                #         - expected_radius
-                #     )
-                #     * 0.10
-                # )
-
-                # score -= (
-                #     radius_penalty
-                # )
-                
-                center_distance = np.hypot(
-                    dx,
-                    dy
-                )
-
-                center_penalty = (
-                    center_distance
-                    * 0.15
-                )
+                # -------------------------
+                # center penalty
+                # -------------------------
 
                 score -= (
                     center_penalty
                 )
 
+                # -------------------------
+                # best candidate
+                # -------------------------
+
                 if (
                     score
                     > best_score
                 ):
+
                     best_score = (
                         score
                     )
 
                     best = {
+
                         "center": (
                             float(cx),
                             float(cy)
@@ -282,12 +328,127 @@ def detect_radial_boundary(
                             float(r),
 
                         "score":
-                            float(score)
+                            float(score),
+                        
+                        "left_transition":
+                            float(
+                                left_transition
+                            ),
+
+                        "right_transition":
+                            float(
+                                right_transition
+                            )
                     }
 
     if best is None:
+
         raise RuntimeError(
             "Boundary detection failed"
         )
+    
+    print(
+        "\nBoundary diagnostics"
+    )
+
+    print(
+        "left transition:",
+        best[
+            "left_transition"
+        ]
+    )
+
+    print(
+        "right transition:",
+        best[
+            "right_transition"
+        ]
+    )
+
+    debug = cv.cvtColor(
+        image.copy(),
+        cv.COLOR_GRAY2BGR
+    )
+
+    cx, cy = best["center"]
+    r = best["radius_px"]
+
+    for angle in np.linspace(
+        0,
+        2 * np.pi,
+        72,
+        endpoint=False
+    ):
+
+        x1 = int(
+            cx
+            + (
+                r
+                - sample_offset
+            )
+            * np.cos(angle)
+        )
+
+        y1 = int(
+            cy
+            + (
+                r
+                - sample_offset
+            )
+            * np.sin(angle)
+        )
+
+        x2 = int(
+            cx
+            + (
+                r
+                + sample_offset
+            )
+            * np.cos(angle)
+        )
+
+        y2 = int(
+            cy
+            + (
+                r
+                + sample_offset
+            )
+            * np.sin(angle)
+        )
+
+        cv.line(
+            debug,
+            (x1, y1),
+            (x2, y2),
+            (0,255,255),
+            1
+        )
+
+    cv.circle(
+        debug,
+        (
+            int(cx),
+            int(cy)
+        ),
+        4,
+        (0,0,255),
+        -1
+    )
+
+    cv.circle(
+        debug,
+        (
+            int(cx),
+            int(cy)
+        ),
+        int(r),
+        (255,255,0),
+        2
+    )
+
+    cv.imwrite(
+        "debug/radial_boundary_debug.png",
+        debug
+    )
 
     return best

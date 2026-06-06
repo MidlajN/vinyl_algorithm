@@ -600,48 +600,13 @@ from core.preprocess import (
 )
 
 from core.spindle import (
-    detect_spindle_hole
+    detect_spindle
 )
 
 from core.ellipse import (
     detect_outer_ellipse,
-    detect_label_ellipse
 )
 
-from core.groove_profile import (
-    build_radial_profile,
-    # detect_label_boundary
-)
-
-from core.polar_profile import (
-    build_polar_annulus_profile
-)
-
-from core.boundaries import (
-    detect_boundaries,
-    detect_outer_playable,
-    detect_separators
-)
-
-from core.geometry import (
-    build_geometry
-)
-
-from debug.visualizer import (
-    visualize
-)
-
-from core.groove_profile import (
-    build_groove_profile
-)
-
-from core.groove_mask import (
-    create_groove_mask
-)
-
-from debug.profile_debug import (
-    show_profiles
-)
 
 from core.rectify import (
     rectify_disc
@@ -659,48 +624,121 @@ from core.geometry_refine import (
     refine_geometry
 )
 
-def detect_initial_disc(
-    image,
-    blur
-):
-    circles = cv.HoughCircles(
-        blur,
-        cv.HOUGH_GRADIENT,
-        dp=1.2,
-        minDist=300,
-        param1=100,
-        param2=30,
-        minRadius=int(
-            image.shape[0] * 0.25
-        ),
-        maxRadius=int(
-            image.shape[0] * 0.48
-        )
-    )
-    circles = np.round(
-        circles[0]
-    ).astype(int)
+import cv2 as cv
+import numpy as np
 
-    largest = max(
-        circles,
-        key=lambda c: c[2]
+
+def crop_to_disc(
+    image,
+    outer,
+    margin=10
+):
+    """
+    Crop tightly around disc
+    and remove outside area.
+
+    Returns:
+    - cropped image
+    - updated outer geometry
+    """
+
+    cx, cy = outer["center"]
+
+    r = int(
+        outer["radius_px"]
+    )
+
+    # -------------------------
+    # bounding crop
+    # -------------------------
+
+    x0 = max(
+        0,
+        int(cx - r - margin)
+    )
+
+    y0 = max(
+        0,
+        int(cy - r - margin)
+    )
+
+    x1 = min(
+        image.shape[1],
+        int(cx + r + margin)
+    )
+
+    y1 = min(
+        image.shape[0],
+        int(cy + r + margin)
+    )
+
+    cropped = image[
+        y0:y1,
+        x0:x1
+    ].copy()
+
+    # -------------------------
+    # local center
+    # -------------------------
+
+    local_cx = (
+        cx - x0
+    )
+
+    local_cy = (
+        cy - y0
+    )
+
+    # -------------------------
+    # disc mask
+    # -------------------------
+
+    mask = np.zeros(
+        cropped.shape[:2],
+        dtype=np.uint8
+    )
+
+    cv.circle(
+        mask,
+        (
+            int(local_cx),
+            int(local_cy)
+        ),
+        int(r + margin),
+        255,
+        -1
+    )
+
+    cropped = cv.bitwise_and(
+        cropped,
+        cropped,
+        mask=mask
+    )
+
+    # -------------------------
+    # updated geometry
+    # -------------------------
+
+    cropped_outer = outer.copy()
+
+    cropped_outer[
+        "center"
+    ] = (
+        float(local_cx),
+        float(local_cy)
     )
 
     return (
-        int(largest[0]),
-        int(largest[1]),
-        int(largest[2])
+        cropped,
+        cropped_outer
     )
-
 
 def main():
     image = cv.imread(
         IMAGE_PATH
     )
 
-    gray, blur = preprocess(
-        image
-    )
+    gray, blur = preprocess(image)
 
     outer = (
         detect_outer_ellipse(
@@ -708,10 +746,59 @@ def main():
         )
     )
 
+    cropped, outer = (
+        crop_to_disc(
+            image, 
+            outer,
+            margin=20
+        )
+    )
+
+    cv.imwrite(
+        'debug/cropped.png',
+        cropped
+    )
+
     rectified = rectify_disc(
-        image,
+        cropped,
         outer
     )
+
+    gray_rect = cv.cvtColor(
+        rectified,
+        cv.COLOR_BGR2GRAY
+    )
+
+    rect_outer = detect_outer_ellipse(
+        gray_rect
+    )
+
+    debug_rect = rectified.copy()
+
+    cv.ellipse(
+        debug_rect,
+        rect_outer["ellipse"],
+        (0,255,0),
+        3
+    )
+
+    cv.circle(
+        debug_rect,
+        (
+            int(rect_outer["center"][0]),
+            int(rect_outer["center"][1])
+        ),
+        8,
+        (0,0,255),
+        -1
+    )
+
+    cv.imwrite(
+        "debug/rectifier_check.png",
+        debug_rect
+    )
+
+    cv.imshow('rectified', rectified)
 
     gray, blur = preprocess(
         rectified
@@ -722,10 +809,17 @@ def main():
         outer
     )
 
-    outer = (
-        detect_outer_ellipse(
-            gray
-        )
+    # -------------------------
+    # update center after crop
+    # rectified disc should
+    # remain centered
+    # -------------------------
+
+    h, w = gray.shape[:2]
+
+    outer["center"] = (
+        w / 2,
+        h / 2
     )
 
     label = detect_label_ring(
@@ -738,119 +832,208 @@ def main():
         label
     )
 
-    outer_cx, outer_cy = (
-        outer["center"]
+    from core.refine_rectify import (
+        refine_rectification
     )
 
-    label_cx, label_cy = (
-        label["center"]
+    micro_rectified = (
+        refine_rectification(
+            rectified,
+            outer,
+            refined
+        )
     )
 
-    blended_center = (
+    outer["center"] = (
+        refined["center_x"],
+        refined["center_y"]
+    )
+
+    gray, blur = preprocess(
+        micro_rectified
+    )
+
+    normalized = normalize_vinyl(
+        micro_rectified,
+        outer
+    )
+
+    cv.imshow(
+        'normalized',
+        normalized
+    )
+
+    label = detect_label_ring(
+        normalized,
+        outer
+    )
+
+    refined = refine_geometry(
+        outer,
+        label
+    )
+
+    spindle = detect_spindle(
+        micro_rectified,
         (
-            outer_cx * 0.65
-            +
-            label_cx * 0.35
+            refined["center_x"],
+            refined["center_y"]
         ),
-        (
-            outer_cy * 0.65
-            +
-            label_cy * 0.35
-        )
+        outer
     )
 
-    # spindle = {
-    #     "x": blended_center[0],
-    #     "y": blended_center[1],
-    #     "radius_px": outer["radius_px"]
-    # }
-
-    # rx = int(
-    #     outer["center"][0]
-    # )
-
-    # ry = int(
-    #     outer["center"][1]
-    # )
-
-    # rr = int(
-    #     outer["radius_px"]
-    # )
-
-    # spindle = {
-    #     "x": rx,
-    #     "y": ry,
-    #     "radius_px": rr
-    # }
-
-    spindle = {
-        "x": refined[
-            "spindle_x"
-        ],
-
-        "y": refined[
-            "spindle_y"
-        ],
-
-        "radius_px": 4
-    }
-
-    outer = (
-        detect_outer_ellipse(
-            gray
-        )
+    outer["center"] = (
+        spindle["x"],
+        spindle["y"]
     )
 
-    profile = (
-        build_radial_profile(
-            gray,
+    gray_source = gray.copy()
+
+    normalized_gray = (
+        normalized.copy()
+    )
+
+    normalized_inv = cv.bitwise_not(
+        normalized_gray
+    )
+
+    from core.radial_energy import (
+        build_radial_energy_profile,
+    )
+
+    profile_gray = (
+        build_radial_energy_profile(
+            gray_source,
             spindle,
-            outer[
-                "radius_px"
-            ]
+            label["radius_px"] + 10,
+            outer["radius_px"] - 10
         )
     )
 
-    boundaries = (
-        detect_boundaries(
-            profile
-        )
-    )
-
-    annulus_profile = (
-        build_polar_annulus_profile(
-            gray,
+    profile_norm = (
+        build_radial_energy_profile(
+            normalized_gray,
             spindle,
-            boundaries[
-                "inner_playable_radius_px"
-            ],
-            outer[
-                "radius_px"
-            ],
-            outer
+            label["radius_px"] + 10,
+            outer["radius_px"] - 10
         )
     )
 
-    outer_playable_radius_px = (
-        detect_outer_playable(
-            annulus_profile
+    profile_inv = (
+        build_radial_energy_profile(
+            normalized_inv,
+            spindle,
+            label["radius_px"] + 10,
+            outer["radius_px"] - 10
         )
     )
 
-    boundaries[
-        "outer_playable_radius_px"
-    ] = (
-        outer_playable_radius_px
+    from scipy.ndimage import (
+        gaussian_filter1d
     )
 
-    # label = {
-    #     "radius_px":
-    #         boundaries[
-    #             "label_radius_px"
-    #         ]
-    # }
+    profile_gray[
+        "smoothed"
+    ] = gaussian_filter1d(
+        profile_gray["energy"],
+        sigma=4
+    )
 
-    debug = rectified.copy()
+    profile_norm[
+        "smoothed"
+    ] = gaussian_filter1d(
+        profile_norm["energy"],
+        sigma=4
+    )
+
+    profile_inv[
+        "smoothed"
+    ] = gaussian_filter1d(
+        profile_inv["energy"],
+        sigma=4
+    )
+
+    import matplotlib.pyplot as plt
+
+    plt.figure(
+        figsize=(15, 6)
+    )
+
+    plt.plot(
+        profile_gray["radii"],
+        profile_gray["smoothed"],
+        label="gray"
+    )
+
+    plt.plot(
+        profile_norm["radii"],
+        profile_norm["smoothed"],
+        label="normalized"
+    )
+
+    plt.plot(
+        profile_inv["radii"],
+        profile_inv["smoothed"],
+        label="normalized inverted"
+    )
+
+    plt.legend()
+
+    plt.grid(True)
+
+    plt.title(
+        "Radial Energy Comparison"
+    )
+
+    plt.xlabel(
+        "Radius (px)"
+    )
+
+    plt.ylabel(
+        "Energy"
+    )
+
+    plt.show()
+
+    profile = build_radial_energy_profile(
+        gray,
+        spindle,
+        inner_radius_px=
+            label["radius_px"] + 10,
+
+        outer_radius_px=
+            outer["radius_px"] - 10
+    )
+
+    import matplotlib.pyplot as plt
+
+    plt.figure(
+        figsize=(12, 5)
+    )
+
+    plt.plot(
+        profile["radii"],
+        profile["energy"]
+    )
+
+    plt.title(
+        "Radial Groove Energy"
+    )
+
+    plt.xlabel(
+        "Radius (px)"
+    )
+
+    plt.ylabel(
+        "Energy"
+    )
+
+    plt.grid(True)
+
+    plt.show()
+
+
+    debug = micro_rectified.copy()
 
     # -------------------------
     # outer center
@@ -898,13 +1081,13 @@ def main():
         debug,
         (
             int(
-                refined[
-                    "spindle_x"
+                spindle[
+                    "x"
                 ]
             ),
             int(
-                refined[
-                    "spindle_y"
+                spindle[
+                    "y"
                 ]
             )
         ),
@@ -944,14 +1127,10 @@ def main():
         debug,
         (
             int(
-                refined[
-                    "center_x"
-                ]
+                spindle["x"]
             ),
             int(
-                refined[
-                    "center_y"
-                ]
+                spindle["y"]
             )
         ),
         int(
@@ -964,89 +1143,9 @@ def main():
     )
 
     cv.imshow(
-        "geometry refinement",
+        'debug',
         debug
     )
-    geometry = (
-        build_geometry(
-            spindle,
-            outer,
-            label,
-            boundaries
-        )
-    )
-
-    groove_mask = create_groove_mask(
-        gray.shape,
-        geometry
-    )
-
-    groove_only = cv.bitwise_and(
-        gray,
-        gray,
-        mask=groove_mask
-    )
-
-    cv.imwrite(
-        "debug/groove_only.jpg",
-        groove_only
-    )
-
-    separators = detect_separators(
-        annulus_profile,
-        boundaries[
-            "inner_playable_radius_px"
-        ],
-        boundaries[
-            "outer_playable_radius_px"
-        ],
-        geometry[
-            "pixels_per_mm"
-        ]
-    )
-
-    boundaries[
-        "separators"
-    ] = separators
-
-    profiles = build_groove_profile(
-        groove_only,
-        geometry
-    )
-
-    show_profiles(
-        profiles
-    )
-
-    print(
-        label["radius_px"]
-    )
-
-    print(
-        "\nGeometry:"
-    )
-
-    print(
-        geometry
-    )
-
-    print(
-        "\nSeparators:"
-    )
-
-    print(
-        separators
-    )
-
-    visualize(
-        rectified,
-        outer,
-        label,
-        spindle,
-        annulus_profile,
-        boundaries
-    )
-
 
 if __name__ == "__main__":
     main()

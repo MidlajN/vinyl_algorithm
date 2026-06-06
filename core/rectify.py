@@ -28,6 +28,15 @@ def rectify_disc(
         major / minor
     )
 
+    print(
+        "\n\nmajor:",
+        major,
+        "minor:",
+        minor,
+        "angle:",
+        angle
+    )
+
     # -------------------
     # rotate around center
     # -------------------

@@ -39,21 +39,63 @@ def detect_outer_ellipse(gray):
         kernel
     )
 
+    cv.imwrite(
+        "debug/outer_thresh.png",
+        thresh
+    )
+
     contours, _ = cv.findContours(
         thresh,
         cv.RETR_EXTERNAL,
         cv.CHAIN_APPROX_SIMPLE
     )
 
+    valid_contours = []
+
+    image_area = (
+        gray.shape[0]
+        * gray.shape[1]
+    )
+
+    for contour in contours:
+
+        if len(contour) < 5:
+            continue
+
+        area = cv.contourArea(
+            contour
+        )
+
+        # ignore tiny noise
+        if area < (
+            image_area
+            * 0.05
+        ):
+            continue
+
+        valid_contours.append(
+            contour
+        )
+
+    if len(valid_contours) == 0:
+
+        cv.imwrite(
+            "debug/outer_thresh_fail.png",
+            thresh
+        )
+
+        raise RuntimeError(
+            "No valid outer contour found"
+        )
+
     largest = max(
-        contours,
+        valid_contours,
         key=cv.contourArea
     )
 
     ellipse = cv.fitEllipse(
         largest
     )
-    
     (
         (cx, cy),
         (major, minor),

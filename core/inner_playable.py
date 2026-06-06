@@ -1,7 +1,7 @@
 from core.radial_boundary import (
     detect_radial_boundary
 )
-
+import cv
 
 def detect_inner_playable(
     normalized,
@@ -20,7 +20,7 @@ def detect_inner_playable(
         * pixels_per_mm
     )
 
-    return detect_radial_boundary(
+    radial_boundary = detect_radial_boundary(
         image=normalized,
 
         center=(
@@ -42,3 +42,5 @@ def detect_inner_playable(
         polarity=
             "dark_to_bright"
     )
+
+    return radial_boundary
