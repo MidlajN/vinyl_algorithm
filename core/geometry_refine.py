@@ -6,14 +6,13 @@ def refine_geometry(
     label
 ):
     """
-    Refine vinyl geometry using
-    detected label ring.
+    Refine geometry using
+    label agreement.
 
-    Returns:
-    - refined center
-    - corrected scale
-    - spindle estimate
-    - confidence metrics
+    For now:
+    - trust label center
+    - estimate residual shift
+    - estimate scale agreement
     """
 
     outer_x, outer_y = (
@@ -34,19 +33,19 @@ def refine_geometry(
 
     # -------------------------
     # expected label radius
+    # 100mm diameter
     # -------------------------
 
     expected_label_radius = (
         outer_radius
-        *
-        (
+        * (
             50.0
             / 152.4
         )
     )
 
     # -------------------------
-    # center agreement
+    # center error
     # -------------------------
 
     dx = (
@@ -67,23 +66,21 @@ def refine_geometry(
     )
 
     # -------------------------
-    # weighted center
+    # refined center
+    # trust label
     # -------------------------
 
     refined_x = (
-        outer_x * 0.75
-        +
-        label_x * 0.25
+        label_x
     )
 
     refined_y = (
-        outer_y * 0.75
-        +
-        label_y * 0.25
+        label_y
     )
 
     # -------------------------
-    # scale correction
+    # scale estimate
+    # diagnostic only
     # -------------------------
 
     scale_factor = (
@@ -92,39 +89,13 @@ def refine_geometry(
         label_radius
     )
 
-    scale_error = abs(
-        1.0
-        - scale_factor
-    )
-
-    # -------------------------
-    # geometry confidence
-    # -------------------------
-
-    center_score = max(
+    confidence = max(
         0.0,
         1.0
         - (
             center_error_px
             / 15.0
         )
-    )
-
-    scale_score = max(
-        0.0,
-        1.0
-        - (
-            scale_error
-            / 0.08
-        )
-    )
-
-    confidence = (
-        center_score
-        * 0.6
-        +
-        scale_score
-        * 0.4
     )
 
     return {
@@ -134,16 +105,6 @@ def refine_geometry(
             ),
 
         "center_y":
-            float(
-                refined_y
-            ),
-
-        "spindle_x":
-            float(
-                refined_x
-            ),
-
-        "spindle_y":
             float(
                 refined_y
             ),
@@ -162,6 +123,12 @@ def refine_geometry(
             float(
                 scale_factor
             ),
+
+        "translation_dx":
+            float(dx),
+
+        "translation_dy":
+            float(dy),
 
         "center_error_px":
             center_error_px,

@@ -5,18 +5,16 @@ import numpy as np
 def refine_rectification(
     image,
     outer,
-    refined
+    refined,
+    padding=40
 ):
     """
-    Second-pass geometry refinement.
+    Micro rectification.
 
-    Uses:
-    - refined spindle center
-    - label scale agreement
+    Translation only.
 
-    Applies:
-    - micro translation
-    - micro isotropic scaling
+    Prevents edge clipping by
+    padding before warp.
     """
 
     h, w = image.shape[:2]
@@ -26,20 +24,12 @@ def refine_rectification(
     )
 
     refined_x = (
-        refined[
-            "center_x"
-        ]
+        refined["center_x"]
     )
 
     refined_y = (
-        refined[
-            "center_y"
-        ]
+        refined["center_y"]
     )
-
-    # -------------------------
-    # translation correction
-    # -------------------------
 
     dx = (
         outer_x
@@ -51,57 +41,60 @@ def refine_rectification(
         - refined_y
     )
 
-    # -------------------------
-    # scale correction
-    # -------------------------
-
-    scale = (
-        refined[
-            "scale_factor"
-        ]
+    print(
+        "\n--- MICRO RECTIFICATION ---"
     )
 
-    # limit correction
-    # avoid instability
+    print(
+        f"dx: {dx:.2f}"
+    )
 
-    scale = np.clip(
-        scale,
-        0.97,
-        1.03
+    print(
+        f"dy: {dy:.2f}"
     )
 
     # -------------------------
-    # affine transform
+    # pad image
     # -------------------------
+
+    padded = cv.copyMakeBorder(
+        image,
+        padding,
+        padding,
+        padding,
+        padding,
+        cv.BORDER_CONSTANT,
+        value=(0, 0, 0)
+    )
 
     matrix = np.array([
-        [
-            scale,
-            0,
-            (
-                1 - scale
-            ) * outer_x
-            + dx
-        ],
-        [
-            0,
-            scale,
-            (
-                1 - scale
-            ) * outer_y
-            + dy
-        ]
-    ],
-    dtype=np.float32)
+        [1, 0, dx],
+        [0, 1, dy]
+    ], dtype=np.float32)
 
-    corrected = (
-        cv.warpAffine(
-            image,
-            matrix,
-            (w, h),
-            flags=
-            cv.INTER_CUBIC
-        )
+    corrected = cv.warpAffine(
+        padded,
+        matrix,
+        (
+            padded.shape[1],
+            padded.shape[0]
+        ),
+        flags=cv.INTER_CUBIC
     )
+
+    # -------------------------
+    # crop back to original
+    # -------------------------
+
+    start_y = padding
+    end_y = padding + h
+
+    start_x = padding
+    end_x = padding + w
+
+    corrected = corrected[
+        start_y:end_y,
+        start_x:end_x
+    ]
 
     return corrected
