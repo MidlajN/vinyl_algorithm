@@ -541,53 +541,63 @@ def main():
         )
     )
 
+    print('Seperator : ', separator_result)
+
     separators = (
         separator_result[
             "separators"
         ]
     )
 
-    print(
-        "\n--- TRACK SEPARATORS ---"
+    from core.tracks import ( 
+        build_tracks 
+        )
+    
+    tracks = build_tracks(
+        playable=playable,
+        separators=separators,
+        ppm=ppm
     )
 
     print(
-        f"Detected: "
-        f"{len(separators)}"
+        "\n--- TRACKS ---"
     )
 
-    for i, s in enumerate(
-        separators,
-        start=1
-    ):
+    print(
+        f"Detected Tracks: "
+        f"{len(tracks)}"
+    )
+
+    for t in tracks:
 
         print(
-            f"\nTrack break {i}"
+            f"\nTrack "
+            f"{t['track_number']}"
         )
 
         print(
-            f"radius px : "
-            f"{s['radius_px']:.2f}"
+            f"start px : "
+            f"{t['start_radius_px']:.2f}"
         )
 
         print(
-            f"radius mm : "
-            f"{s['radius_mm']:.2f}"
+            f"end px   : "
+            f"{t['end_radius_px']:.2f}"
         )
 
         print(
-            f"prominence: "
-            f"{s['prominence']:.2f}"
+            f"start mm : "
+            f"{t['start_radius_mm']:.2f}"
         )
 
         print(
-            f"width mm  : "
-            f"{s['width_mm']:.2f}"
+            f"end mm   : "
+            f"{t['end_radius_mm']:.2f}"
         )
 
         print(
-            f"score     : "
-            f"{s['score']:.2f}"
+            f"width mm : "
+            f"{t['width_mm']:.2f}"
         )
 
     # =====================================
@@ -758,6 +768,64 @@ def main():
             cv.FONT_HERSHEY_SIMPLEX,
             0.45,
             (0, 255, 0),
+            1
+        )
+    
+    # -------------------------------------
+    # track starts
+    # -------------------------------------
+
+    for idx, t in enumerate(
+        tracks,
+        start=1
+    ):
+
+        r = int(
+            t[
+                "start_radius_px"
+            ]
+        )
+
+        angle = np.deg2rad(
+            230
+        )
+
+        tx = int(
+            cx
+            + r
+            * np.cos(angle)
+        )
+
+        ty = int(
+            cy
+            + r
+            * np.sin(angle)
+        )
+
+        cv.circle(
+            debug_img,
+            (
+                int(cx),
+                int(cy)
+            ),
+            r,
+            (255, 0, 255),
+            1
+        )
+
+        cv.putText(
+            debug_img,
+            (
+                f"Track - {idx} "
+                f"{t['start_radius_mm']}mm"
+            ),
+            (
+                tx,
+                ty
+            ),
+            cv.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 0, 255),
             1
         )
 
