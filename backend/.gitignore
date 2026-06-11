@@ -19,6 +19,8 @@ debug/*.jpg
 debug/*.jpeg
 debug/*.webp
 
+uploads 
+
 # OS/editor noise
 .DS_Store
 .idea/
