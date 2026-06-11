@@ -5,16 +5,18 @@ type VinylTrackRingProps = {
   track: Track
   radius: number
   strokeWidth: number
-  isSelected: boolean
-  onSelect?: (track: Track) => void
+  isHighlighted: boolean
+  onHighlight?: (track: Track) => void
+  onClearHighlight?: () => void
 }
 
 export function VinylTrackRing({
   track,
   radius,
   strokeWidth,
-  isSelected,
-  onSelect,
+  isHighlighted,
+  onHighlight,
+  onClearHighlight,
 }: VinylTrackRingProps) {
   return (
     <motion.circle
@@ -22,24 +24,28 @@ export function VinylTrackRing({
       cy="150"
       r={radius}
       fill="none"
-      stroke={isSelected ? 'var(--color-accent)' : 'var(--color-groove)'}
+      stroke={isHighlighted ? 'var(--color-accent)' : 'var(--color-groove)'}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       className="cursor-pointer outline-none"
       role="button"
       tabIndex={0}
-      aria-label={`Select track ${track.track_number}`}
+      aria-label={`Inspect track ${track.track_number}`}
       initial={false}
       animate={{
-        opacity: isSelected ? 0.96 : 0.42,
-        filter: isSelected ? 'drop-shadow(0 0 13px var(--color-accent-glow))' : 'drop-shadow(0 0 0 transparent)',
+        opacity: isHighlighted ? 0.96 : 0.42,
+        filter: isHighlighted ? 'drop-shadow(0 0 13px var(--color-accent-glow))' : 'drop-shadow(0 0 0 transparent)',
       }}
       transition={{ duration: 0.28 }}
-      onClick={() => onSelect?.(track)}
+      onClick={() => onHighlight?.(track)}
+      onMouseEnter={() => onHighlight?.(track)}
+      onMouseLeave={onClearHighlight}
+      onFocus={() => onHighlight?.(track)}
+      onBlur={onClearHighlight}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          onSelect?.(track)
+          onHighlight?.(track)
         }
       }}
     />

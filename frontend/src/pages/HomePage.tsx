@@ -46,7 +46,7 @@ export function HomePage() {
               Track detection ready
             </div>
             <p className="max-w-[15rem] text-2xl font-semibold leading-tight">
-              Turn a record image into playable track positions.
+              Turn a record image into a verified track map.
             </p>
           </div>
         </motion.div>

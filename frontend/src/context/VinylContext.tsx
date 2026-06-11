@@ -8,19 +8,17 @@ import {
   type ReactNode,
 } from 'react'
 import { DEFAULT_THEME, THEME_STORAGE_KEY, THEMES } from '../constants/theme'
-import type { CapturedImage, Theme, Track, VinylAnalysisResponse } from '../types/vinyl'
+import type { CapturedImage, Theme, VinylAnalysisResponse } from '../types/vinyl'
 
 type VinylContextValue = {
   capturedImage: CapturedImage | null
   analysisResult: VinylAnalysisResponse | null
-  selectedTrack: Track | null
   isAnalyzing: boolean
   theme: Theme
   setCapturedImage: (file: File, source: CapturedImage['source']) => void
   clearCapturedImage: () => void
   startAnalysis: () => void
   setAnalysisResult: (result: VinylAnalysisResponse | null) => void
-  setSelectedTrack: (track: Track | null) => void
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
   stopAnalysis: () => void
@@ -40,7 +38,6 @@ function getInitialTheme(): Theme {
 export function VinylProvider({ children }: { children: ReactNode }) {
   const [capturedImage, setCapturedImageState] = useState<CapturedImage | null>(null)
   const [analysisResult, setAnalysisResultState] = useState<VinylAnalysisResponse | null>(null)
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [theme, setThemeState] = useState<Theme>(getInitialTheme)
 
@@ -72,7 +69,6 @@ export function VinylProvider({ children }: { children: ReactNode }) {
       }
     })
     setAnalysisResultState(null)
-    setSelectedTrack(null)
   }, [])
 
   const clearCapturedImage = useCallback(() => {
@@ -83,14 +79,12 @@ export function VinylProvider({ children }: { children: ReactNode }) {
       return null
     })
     setAnalysisResultState(null)
-    setSelectedTrack(null)
     setIsAnalyzing(false)
   }, [])
 
   const startAnalysis = useCallback(() => {
     setIsAnalyzing(true)
     setAnalysisResultState(null)
-    setSelectedTrack(null)
   }, [])
 
   const stopAnalysis = useCallback(() => {
@@ -99,7 +93,6 @@ export function VinylProvider({ children }: { children: ReactNode }) {
 
   const setAnalysisResult = useCallback((result: VinylAnalysisResponse | null) => {
     setAnalysisResultState(result)
-    setSelectedTrack(result?.tracks[0] ?? null)
     setIsAnalyzing(false)
   }, [])
 
@@ -115,14 +108,12 @@ export function VinylProvider({ children }: { children: ReactNode }) {
     () => ({
       capturedImage,
       analysisResult,
-      selectedTrack,
       isAnalyzing,
       theme,
       setCapturedImage,
       clearCapturedImage,
       startAnalysis,
       setAnalysisResult,
-      setSelectedTrack,
       setTheme,
       toggleTheme,
       stopAnalysis,
@@ -130,7 +121,6 @@ export function VinylProvider({ children }: { children: ReactNode }) {
     [
       capturedImage,
       analysisResult,
-      selectedTrack,
       isAnalyzing,
       theme,
       setCapturedImage,

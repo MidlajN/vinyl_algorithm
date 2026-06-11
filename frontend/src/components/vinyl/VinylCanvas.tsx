@@ -3,12 +3,12 @@ import { motion } from 'framer-motion'
 import type { Track, VinylMode } from '../../types/vinyl'
 import { VinylAnimation } from './VinylAnimation'
 import { VinylTrackRing } from './VinylTrackRing'
-import { NeedleIndicator } from './NeedleIndicator'
 
 type VinylCanvasProps = {
   tracks: Track[]
-  selectedTrack?: Track | null
-  onSelectTrack?: (track: Track) => void
+  highlightedTrackNumber?: number | null
+  onHighlightTrack?: (track: Track) => void
+  onClearHighlight?: () => void
   mode?: VinylMode
   imageUrl?: string
 }
@@ -21,8 +21,9 @@ type RingGeometry = {
 
 export function VinylCanvas({
   tracks,
-  selectedTrack,
-  onSelectTrack,
+  highlightedTrackNumber,
+  onHighlightTrack,
+  onClearHighlight,
   mode = 'generated',
   imageUrl,
 }: VinylCanvasProps) {
@@ -45,12 +46,9 @@ export function VinylCanvas({
     })
   }, [tracks])
 
-  const selectedAngle = selectedTrack?.servo_angle_deg ?? -12
-
   return (
     <section className="relative mx-auto aspect-square w-full max-w-[360px]" aria-label="Vinyl track map">
       <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,var(--color-accent-soft),transparent_64%)] blur-2xl" />
-      <NeedleIndicator angle={selectedAngle} />
       <VinylAnimation className="absolute inset-[5%] rounded-full">
         <svg
           className="size-full overflow-visible rounded-full"
@@ -73,13 +71,26 @@ export function VinylCanvas({
           <circle cx="150" cy="150" r="116" fill="none" stroke="var(--color-vinyl-sheen)" strokeWidth="0.7" opacity="0.45" />
           <circle cx="150" cy="150" r="92" fill="none" stroke="var(--color-vinyl-sheen)" strokeWidth="0.6" opacity="0.34" />
           {rings.map((ring) => (
+            <circle
+              key={`separator-${ring.track.track_number}`}
+              cx="150"
+              cy="150"
+              r={Math.max(ring.radius - ring.strokeWidth / 2, 36)}
+              fill="none"
+              stroke="var(--color-separator)"
+              strokeWidth="1"
+              opacity="0.62"
+            />
+          ))}
+          {rings.map((ring) => (
             <VinylTrackRing
               key={ring.track.track_number}
               track={ring.track}
               radius={ring.radius}
               strokeWidth={ring.strokeWidth}
-              isSelected={selectedTrack?.track_number === ring.track.track_number}
-              onSelect={onSelectTrack}
+              isHighlighted={highlightedTrackNumber === ring.track.track_number}
+              onHighlight={onHighlightTrack}
+              onClearHighlight={onClearHighlight}
             />
           ))}
           <motion.circle
@@ -89,8 +100,8 @@ export function VinylCanvas({
             fill="var(--color-label)"
             stroke="var(--color-border)"
             strokeWidth="1"
-            animate={{ scale: selectedTrack ? [1, 1.035, 1] : 1 }}
-            transition={{ duration: 1.8, repeat: selectedTrack ? Infinity : 0 }}
+            animate={{ scale: highlightedTrackNumber ? [1, 1.025, 1] : 1 }}
+            transition={{ duration: 1.8, repeat: highlightedTrackNumber ? Infinity : 0 }}
           />
           <circle cx="150" cy="150" r="7" fill="var(--color-bg)" />
         </svg>

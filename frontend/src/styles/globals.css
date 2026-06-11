@@ -23,6 +23,7 @@
   --color-soft-shadow: rgba(0, 0, 0, 0.32);
   --color-chip: rgba(255, 255, 255, 0.08);
   --color-groove: rgba(239, 239, 230, 0.5);
+  --color-separator: rgba(255, 255, 255, 0.18);
   --color-vinyl-center: #3a3a41;
   --color-vinyl-mid: #19191d;
   --color-vinyl-edge: #070708;
@@ -52,6 +53,7 @@
   --color-soft-shadow: rgba(43, 36, 24, 0.14);
   --color-chip: rgba(23, 21, 18, 0.06);
   --color-groove: rgba(35, 31, 27, 0.32);
+  --color-separator: rgba(255, 255, 255, 0.2);
   --color-vinyl-center: #4a4541;
   --color-vinyl-mid: #242222;
   --color-vinyl-edge: #11100f;

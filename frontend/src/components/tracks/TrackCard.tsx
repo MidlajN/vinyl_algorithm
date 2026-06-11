@@ -3,18 +3,23 @@ import type { Track } from '../../types/vinyl'
 
 type TrackCardProps = {
   track: Track
-  isSelected: boolean
-  onSelect: (track: Track) => void
+  isHighlighted: boolean
+  onHighlight: (track: Track) => void
+  onClearHighlight: () => void
 }
 
-export function TrackCard({ track, isSelected, onSelect }: TrackCardProps) {
+export function TrackCard({ track, isHighlighted, onHighlight, onClearHighlight }: TrackCardProps) {
   return (
     <motion.button
       type="button"
       whileTap={{ scale: 0.98 }}
-      onClick={() => onSelect(track)}
+      onClick={() => onHighlight(track)}
+      onMouseEnter={() => onHighlight(track)}
+      onMouseLeave={onClearHighlight}
+      onFocus={() => onHighlight(track)}
+      onBlur={onClearHighlight}
       className={`flex w-full items-center justify-between rounded-[24px] border px-4 py-3 text-left transition ${
-        isSelected
+        isHighlighted
           ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]'
           : 'border-[var(--color-border)] bg-[var(--color-surface-strong)]'
       }`}
@@ -22,12 +27,10 @@ export function TrackCard({ track, isSelected, onSelect }: TrackCardProps) {
       <span>
         <span className="block text-sm font-semibold">Track {track.track_number}</span>
         <span className="mt-1 block text-xs text-[var(--color-muted)]">
-          {track.width_mm.toFixed(1)} mm groove band
+          {track.start_radius_mm.toFixed(1)} mm
         </span>
       </span>
-      <span className="rounded-full bg-[var(--color-chip)] px-3 py-1 text-sm font-semibold text-[var(--color-text)]">
-        {track.servo_angle_deg.toFixed(1)} deg
-      </span>
+      <span className="size-2 rounded-full bg-[var(--color-accent)] opacity-70" />
     </motion.button>
   )
 }

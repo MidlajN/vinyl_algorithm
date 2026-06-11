@@ -11,7 +11,7 @@ import type { AnalysisError } from '../types/vinyl'
 const loaderSteps = [
   'Detecting grooves',
   'Finding track separators',
-  'Mapping playback positions',
+  'Mapping groove positions',
   'Preparing track layout',
 ]
 
@@ -52,7 +52,7 @@ export function AnalyzingPage() {
         await new Promise((resolve) => window.setTimeout(resolve, minimumDelay))
 
         if (!result.success || result.tracks.length === 0) {
-          throw new Error('The analysis did not return playable tracks.')
+          throw new Error('The analysis did not return a usable track map.')
         }
 
         setAnalysisResult(result)
