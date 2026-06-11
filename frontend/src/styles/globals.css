@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --color-bg: #111113;
+  --color-surface: rgba(29, 29, 32, 0.78);
+  --color-surface-strong: rgba(42, 42, 46, 0.82);
+  --color-surface-elevated: rgba(35, 35, 39, 0.94);
+  --color-text: #f6f3ec;
+  --color-muted: #a8a39a;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-accent: #31e981;
+  --color-accent-contrast: #06120b;
+  --color-accent-soft: rgba(49, 233, 129, 0.16);
+  --color-accent-glow: rgba(49, 233, 129, 0.62);
+  --color-accent-shadow: rgba(49, 233, 129, 0.26);
+  --color-soft-shadow: rgba(0, 0, 0, 0.32);
+  --color-chip: rgba(255, 255, 255, 0.08);
+  --color-groove: rgba(239, 239, 230, 0.5);
+  --color-vinyl-center: #3a3a41;
+  --color-vinyl-mid: #19191d;
+  --color-vinyl-edge: #070708;
+  --color-vinyl-sheen: rgba(255, 255, 255, 0.18);
+  --color-label: #232129;
+  --color-needle: #e8e0d3;
+  --color-danger: #ff756d;
+  --color-danger-soft: rgba(255, 117, 109, 0.14);
+  background: var(--color-bg);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f5f1e9;
+  --color-surface: rgba(255, 252, 245, 0.82);
+  --color-surface-strong: rgba(248, 244, 236, 0.94);
+  --color-surface-elevated: rgba(255, 252, 245, 0.96);
+  --color-text: #171512;
+  --color-muted: #746f67;
+  --color-border: rgba(23, 21, 18, 0.09);
+  --color-border-strong: rgba(23, 21, 18, 0.16);
+  --color-accent: #19c96f;
+  --color-accent-contrast: #06120b;
+  --color-accent-soft: rgba(25, 201, 111, 0.14);
+  --color-accent-glow: rgba(25, 201, 111, 0.42);
+  --color-accent-shadow: rgba(25, 201, 111, 0.2);
+  --color-soft-shadow: rgba(43, 36, 24, 0.14);
+  --color-chip: rgba(23, 21, 18, 0.06);
+  --color-groove: rgba(35, 31, 27, 0.32);
+  --color-vinyl-center: #4a4541;
+  --color-vinyl-mid: #242222;
+  --color-vinyl-edge: #11100f;
+  --color-vinyl-sheen: rgba(255, 255, 255, 0.2);
+  --color-label: #f1e5cf;
+  --color-needle: #2f2b26;
+  --color-danger: #c83f38;
+  --color-danger-soft: rgba(200, 63, 56, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--color-bg);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 20% 0%, var(--color-accent-soft), transparent 30rem),
+    var(--color-bg);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
