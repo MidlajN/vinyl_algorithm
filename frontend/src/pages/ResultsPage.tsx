@@ -95,7 +95,7 @@ export function ResultsPage() {
         />
       </section>
 
-      <div className="mt-auto space-y-3 pb-28">
+      <div className="mt-auto space-y-3 pb-2">
         <TrackList
           tracks={tracks}
           highlightedTrackNumber={highlightedTrackNumber}

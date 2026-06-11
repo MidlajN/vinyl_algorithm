@@ -1,6 +1,8 @@
 import cv2 as cv
 import numpy as np
 
+from utils.debug import save_debug_image
+
 
 def detect_radial_boundary(
     image,
@@ -11,7 +13,8 @@ def detect_radial_boundary(
     polarity="bright_to_dark",
     sample_count=720,
     sample_offset=8,
-    radius_step=2
+    radius_step=2,
+    debug=False
 ):
     """
     Fast radial boundary detector.
@@ -365,7 +368,7 @@ def detect_radial_boundary(
         ]
     )
 
-    debug = cv.cvtColor(
+    debug_img = cv.cvtColor(
         image.copy(),
         cv.COLOR_GRAY2BGR
     )
@@ -417,7 +420,7 @@ def detect_radial_boundary(
         )
 
         cv.line(
-            debug,
+            debug_img,
             (x1, y1),
             (x2, y2),
             (0,255,255),
@@ -425,7 +428,7 @@ def detect_radial_boundary(
         )
 
     cv.circle(
-        debug,
+        debug_img,
         (
             int(cx),
             int(cy)
@@ -436,7 +439,7 @@ def detect_radial_boundary(
     )
 
     cv.circle(
-        debug,
+        debug_img,
         (
             int(cx),
             int(cy)
@@ -446,9 +449,6 @@ def detect_radial_boundary(
         2
     )
 
-    cv.imwrite(
-        "debug/radial_boundary_debug.png",
-        debug
-    )
+    save_debug_image(debug, "09_label_boundary_debug.png", debug_img)
 
     return best

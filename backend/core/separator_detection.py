@@ -269,6 +269,8 @@ def detect_track_separators(
 
     if debug:
 
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
         plt.figure(
@@ -344,7 +346,12 @@ def detect_track_separators(
         plt.legend()
 
         plt.tight_layout()
-        plt.show()
+        plt.savefig(
+            "debug/11_separator_profile.png",
+            dpi=100,
+            bbox_inches="tight"
+        )
+        plt.close()
 
     return {
         "count":

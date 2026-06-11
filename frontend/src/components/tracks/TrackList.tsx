@@ -15,7 +15,7 @@ export function TrackList({
   onClearHighlight,
 }: TrackListProps) {
   return (
-    <section className="rounded-t-[34px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_-18px_50px_var(--color-soft-shadow)]">
+    <section className="rounded-t-[34px] pb-24 border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[0_-18px_50px_var(--color-soft-shadow)]">
       <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-[var(--color-border-strong)]" />
       <div className="mb-4 flex items-end justify-between">
         <div>

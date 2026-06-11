@@ -1,6 +1,8 @@
 import cv2 as cv
 import numpy as np
 
+from utils.debug import save_debug_image
+
 
 def ellipse_radius(ellipse):
     (_, _), (major, minor), _ = ellipse
@@ -13,7 +15,7 @@ def ellipse_radius(ellipse):
     )
 
 
-def detect_outer_ellipse(gray):
+def detect_outer_ellipse(gray, debug=False):
     blur = cv.GaussianBlur(
         gray,
         (7, 7),
@@ -39,10 +41,7 @@ def detect_outer_ellipse(gray):
         kernel
     )
 
-    cv.imwrite(
-        "debug/outer_thresh.png",
-        thresh
-    )
+    save_debug_image(debug, "03_outer_thresh.png", thresh)
 
     contours, _ = cv.findContours(
         thresh,
@@ -79,10 +78,7 @@ def detect_outer_ellipse(gray):
 
     if len(valid_contours) == 0:
 
-        cv.imwrite(
-            "debug/outer_thresh_fail.png",
-            thresh
-        )
+        save_debug_image(debug, "03_outer_thresh_fail.png", thresh)
 
         raise RuntimeError(
             "No valid outer contour found"

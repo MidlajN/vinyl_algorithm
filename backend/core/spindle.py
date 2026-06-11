@@ -1,6 +1,8 @@
 import cv2 as cv
 import numpy as np
 
+from utils.debug import save_debug_image
+
 
 def detect_spindle(
     image,
@@ -8,7 +10,8 @@ def detect_spindle(
     outer,
     search_offset=15,
     sample_count=180,
-    sample_offset=3
+    sample_offset=3,
+    debug=False
 ):
     """
     Fast + accurate spindle detector.
@@ -318,7 +321,7 @@ def detect_spindle(
             "Spindle detection failed"
         )
 
-    debug = cv.cvtColor(
+    debug_img = cv.cvtColor(
         gray.copy(),
         cv.COLOR_GRAY2BGR
     )
@@ -361,7 +364,7 @@ def detect_spindle(
         )
 
         cv.line(
-            debug,
+            debug_img,
             (x1, y1),
             (x2, y2),
             (0,255,255),
@@ -369,7 +372,7 @@ def detect_spindle(
         )
 
     cv.circle(
-        debug,
+        debug_img,
         (
             int(cx),
             int(cy)
@@ -380,7 +383,7 @@ def detect_spindle(
     )
 
     cv.circle(
-        debug,
+        debug_img,
         (
             int(cx),
             int(cy)
@@ -390,9 +393,6 @@ def detect_spindle(
         -1
     )
 
-    cv.imwrite(
-        "debug/spindle_debug.png",
-        debug
-    )
+    save_debug_image(debug, "08_spindle_debug.png", debug_img)
 
     return best

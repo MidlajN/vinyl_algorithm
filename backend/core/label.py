@@ -4,7 +4,8 @@ from core.radial_boundary import (
 
 def detect_label_ring(
     normalized,
-    outer
+    outer,
+    debug=False
 ):
     expected_radius = (
         outer[
@@ -25,5 +26,6 @@ def detect_label_ring(
         center_offset=15,
         polarity="dark_to_bright",
         sample_count=600,
-        radius_step=2
+        radius_step=2,
+        debug=debug
     )

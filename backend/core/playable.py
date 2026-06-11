@@ -5,6 +5,8 @@ from scipy.ndimage import (
     gaussian_filter1d
 )
 
+from utils.debug import save_debug_image
+
 
 def crop_playable_region(
     image,
@@ -225,7 +227,7 @@ def detect_playable_boundaries(
         margin=10
     )
 
-    cv.imwrite('debug/lsdfjsldfkjs.png', normalized)
+    save_debug_image(debug, "10_playable_crop.png", normalized)
 
     x0, y0 = crop_offset
 
@@ -429,6 +431,8 @@ def detect_playable_boundaries(
 
     if debug:
 
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
         debug_img = cv.cvtColor(
@@ -620,15 +624,8 @@ def detect_playable_boundaries(
             2
         )
 
-        cv.imwrite(
-            "debug/playable_debug_full.png",
-            debug_img
-        )
+        save_debug_image(debug, "11_playable_debug.png", debug_img)
 
-        cv.imshow(
-            "Playable Detection",
-            debug_img
-        )
 
         # -------------------------
         # plots
@@ -763,6 +760,11 @@ def detect_playable_boundaries(
         )
 
         plt.tight_layout()
-        plt.show()
+        plt.savefig(
+            "debug/11_playable_profile.png",
+            dpi=100,
+            bbox_inches="tight"
+        )
+        plt.close()
 
     return result

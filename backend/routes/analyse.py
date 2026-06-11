@@ -4,6 +4,7 @@ import uuid
 from fastapi import (
     APIRouter,
     File,
+    Query,
     UploadFile,
     HTTPException
 )
@@ -17,7 +18,10 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 @router.post("/")
-async def analyse(image: UploadFile = File(...)):
+async def analyse(
+    image: UploadFile = File(...),
+    debug: bool = Query(False)
+):
 
      # validate file type
     if not image.content_type.startswith("image/"):
@@ -25,7 +29,7 @@ async def analyse(image: UploadFile = File(...)):
             status_code=400,
             detail="File must be an image"
         )
-    
+
     # unique filename
     extension = Path(image.filename).suffix
 
@@ -44,7 +48,8 @@ async def analyse(image: UploadFile = File(...)):
 
     # run algorithm
     result = analyse_vinyl(
-        str(file_path)
+        str(file_path),
+        debug=debug
     )
 
     return result
@@ -54,7 +59,8 @@ async def analyse(image: UploadFile = File(...)):
 def test_analysis():
 
     result = analyse_vinyl(
-        "uploads/vinyl.jpg"
+        "debug/vinyl.jpg",
+        debug=True
     )
 
     return result

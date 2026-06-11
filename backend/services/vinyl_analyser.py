@@ -5,6 +5,8 @@ from config import (
     IMAGE_PATH
 )
 
+from utils.debug import save_debug_image
+
 from core.preprocess import (
     preprocess
 )
@@ -139,7 +141,7 @@ def crop_to_disc(
         cropped_outer
     )
 
-def analyse_vinyl(image_path: str):
+def analyse_vinyl(image_path: str, debug: bool = False):
 
     image = cv.imread(image_path)
 
@@ -149,26 +151,35 @@ def analyse_vinyl(image_path: str):
             "error": "Image not found"
         }
 
+    save_debug_image(debug, "01_input.png", image)
+
     gray, blur = preprocess(image)
+
+    save_debug_image(debug, "02_preprocess_gray.png", gray)
 
     outer = (
         detect_outer_ellipse(
-            gray
+            gray,
+            debug=debug
         )
     )
 
     cropped, outer = (
         crop_to_disc(
-            image, 
+            image,
             outer,
             margin=20
         )
     )
 
+    save_debug_image(debug, "04_cropped_disc.png", cropped)
+
     rectified = rectify_disc(
         cropped,
         outer
     )
+
+    save_debug_image(debug, "05_rectified.png", rectified)
 
     gray_rectified, blur = preprocess(
         rectified
@@ -180,7 +191,8 @@ def analyse_vinyl(image_path: str):
     # -------------------------
 
     outer = detect_outer_ellipse(
-        gray_rectified
+        gray_rectified,
+        debug=debug
     )
 
     print(
@@ -197,16 +209,18 @@ def analyse_vinyl(image_path: str):
         outer
     )
 
+    save_debug_image(debug, "07_normalized.png", normalized)
+
     # -------------------------
     # update center after crop
     # rectified disc should
     # remain centered
     # -------------------------
 
-
     label = detect_label_ring(
         normalized,
-        outer
+        outer,
+        debug=debug
     )
 
     refined = refine_geometry(
@@ -226,13 +240,16 @@ def analyse_vinyl(image_path: str):
         )
     )
 
+    save_debug_image(debug, "06_micro_rectified.png", micro_rectified)
+
     gray_micro, _ = preprocess(
         micro_rectified
     )
 
     micro_outer = (
         detect_outer_ellipse(
-            gray_micro
+            gray_micro,
+            debug=debug
         )
     )
 
@@ -273,7 +290,8 @@ def analyse_vinyl(image_path: str):
             refined["center_x"],
             refined["center_y"]
         ),
-        outer
+        outer,
+        debug=debug
     )
 
     # -------------------------
@@ -300,9 +318,12 @@ def analyse_vinyl(image_path: str):
         outer
     )
 
+    save_debug_image(debug, "07_normalized_final.png", normalized)
+
     label = detect_label_ring(
         normalized,
-        outer
+        outer,
+        debug=debug
     )
 
     refined = refine_geometry(
@@ -478,8 +499,8 @@ def analyse_vinyl(image_path: str):
             label,
             outer,
             disc_center,
-            debug=False
-        ) 
+            debug=debug
+        )
     )
 
     print("\n--- PLAYABLE ---")
@@ -542,7 +563,7 @@ def analyse_vinyl(image_path: str):
 
             ignore_edge_mm=6.0,
 
-            debug=False
+            debug=debug
         )
     )
 
@@ -861,10 +882,7 @@ def analyse_vinyl(image_path: str):
     # SAVE + SHOW
     # =====================================
 
-    cv.imwrite(
-        "debug/separator_detection.png",
-        debug_img
-    )
+    save_debug_image(debug, "12_tracks_overlay.png", debug_img)
 
     return {
         'success': True,
