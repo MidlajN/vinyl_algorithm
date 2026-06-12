@@ -8,6 +8,14 @@
       "cwd": "frontend",
       "port": 5174,
       "autoPort": false
+    },
+    {
+      "name": "wasm-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "wasm",
+      "port": 5175,
+      "autoPort": false
     }
   ]
 }

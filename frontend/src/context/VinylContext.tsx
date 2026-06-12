@@ -8,17 +8,24 @@ import {
   type ReactNode,
 } from 'react'
 import { DEFAULT_THEME, THEME_STORAGE_KEY, THEMES } from '../constants/theme'
-import type { CapturedImage, Theme, VinylAnalysisResponse } from '../types/vinyl'
+import { analyseVinyl } from '../services/vinyl.service'
+import type { AnalysisProgress, CapturedImage, Theme, VinylResult } from '../types/vinyl'
 
 type VinylContextValue = {
   capturedImage: CapturedImage | null
-  analysisResult: VinylAnalysisResponse | null
+  image?: File
+  previewUrl?: string
+  analysisResult: VinylResult | null
+  result?: VinylResult
   isAnalyzing: boolean
+  analysisProgress?: AnalysisProgress
+  error?: string
   theme: Theme
   setCapturedImage: (file: File, source: CapturedImage['source']) => void
   clearCapturedImage: () => void
   startAnalysis: () => void
-  setAnalysisResult: (result: VinylAnalysisResponse | null) => void
+  analyze: () => Promise<void>
+  setAnalysisResult: (result: VinylResult | null) => void
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
   stopAnalysis: () => void
@@ -37,8 +44,10 @@ function getInitialTheme(): Theme {
 
 export function VinylProvider({ children }: { children: ReactNode }) {
   const [capturedImage, setCapturedImageState] = useState<CapturedImage | null>(null)
-  const [analysisResult, setAnalysisResultState] = useState<VinylAnalysisResponse | null>(null)
+  const [analysisResult, setAnalysisResultState] = useState<VinylResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | undefined>()
+  const [error, setError] = useState<string | undefined>()
   const [theme, setThemeState] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -69,6 +78,8 @@ export function VinylProvider({ children }: { children: ReactNode }) {
       }
     })
     setAnalysisResultState(null)
+    setAnalysisProgress(undefined)
+    setError(undefined)
   }, [])
 
   const clearCapturedImage = useCallback(() => {
@@ -79,22 +90,51 @@ export function VinylProvider({ children }: { children: ReactNode }) {
       return null
     })
     setAnalysisResultState(null)
+    setAnalysisProgress(undefined)
+    setError(undefined)
     setIsAnalyzing(false)
   }, [])
 
   const startAnalysis = useCallback(() => {
     setIsAnalyzing(true)
     setAnalysisResultState(null)
+    setAnalysisProgress(undefined)
+    setError(undefined)
   }, [])
 
   const stopAnalysis = useCallback(() => {
     setIsAnalyzing(false)
   }, [])
 
-  const setAnalysisResult = useCallback((result: VinylAnalysisResponse | null) => {
+  const setAnalysisResult = useCallback((result: VinylResult | null) => {
     setAnalysisResultState(result)
     setIsAnalyzing(false)
   }, [])
+
+  const analyze = useCallback(async () => {
+    if (!capturedImage) {
+      throw new Error('No vinyl image selected')
+    }
+
+    setIsAnalyzing(true)
+    setAnalysisResultState(null)
+    setAnalysisProgress(undefined)
+    setError(undefined)
+
+    try {
+      const nextResult = await analyseVinyl(capturedImage.file, (stage, stageIndex, totalStages) => {
+        setAnalysisProgress({ stage, stageIndex, totalStages })
+      })
+
+      setAnalysisResultState(nextResult)
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Vinyl analysis failed'
+      setError(message)
+      throw caughtError
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [capturedImage])
 
   const setTheme = useCallback((nextTheme: Theme) => {
     setThemeState(nextTheme)
@@ -107,12 +147,18 @@ export function VinylProvider({ children }: { children: ReactNode }) {
   const value = useMemo<VinylContextValue>(
     () => ({
       capturedImage,
+      image: capturedImage?.file,
+      previewUrl: capturedImage?.url,
       analysisResult,
+      result: analysisResult ?? undefined,
       isAnalyzing,
+      analysisProgress,
+      error,
       theme,
       setCapturedImage,
       clearCapturedImage,
       startAnalysis,
+      analyze,
       setAnalysisResult,
       setTheme,
       toggleTheme,
@@ -122,10 +168,13 @@ export function VinylProvider({ children }: { children: ReactNode }) {
       capturedImage,
       analysisResult,
       isAnalyzing,
+      analysisProgress,
+      error,
       theme,
       setCapturedImage,
       clearCapturedImage,
       startAnalysis,
+      analyze,
       setAnalysisResult,
       setTheme,
       toggleTheme,

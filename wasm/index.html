@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vinyl WASM Dev Harness</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    h1 { font-size: 16px; color: #aaa; margin-bottom: 4px; }
+    h2 { font-size: 12px; color: #666; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+    .header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #222;
+    }
+
+    #deviceInfo {
+      font-size: 11px;
+      color: #555;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ── Left column ── */
+    .left { display: flex; flex-direction: column; gap: 12px; }
+
+    #dropzone {
+      border: 1px dashed #333;
+      border-radius: 4px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      color: #555;
+      transition: border-color 0.15s, color 0.15s;
+      user-select: none;
+    }
+
+    #dropzone:hover, #dropzone.drag-over {
+      border-color: #4af;
+      color: #4af;
+    }
+
+    #fileInput { display: none; }
+
+    #preview {
+      display: none;
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid #222;
+      max-height: 240px;
+      object-fit: contain;
+      background: #111;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #1a1a2e;
+      color: #4af;
+      border: 1px solid #4af;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
+    }
+
+    button:hover:not(:disabled) { background: #1e2a4a; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Status ── */
+    .status {
+      padding: 8px 10px;
+      border-radius: 3px;
+      font-size: 12px;
+      border-left: 3px solid transparent;
+    }
+    .status.ok     { border-color: #3a3; color: #5e5; background: #0a1a0a; }
+    .status.busy   { border-color: #aa4; color: #cc6; background: #1a1800; }
+    .status.error  { border-color: #a33; color: #e55; background: #1a0a0a; }
+
+    /* ── Right column ── */
+    .right { display: flex; flex-direction: column; gap: 16px; }
+
+    .panel {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 12px;
+    }
+
+    pre {
+      white-space: pre;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.5;
+      min-height: 40px;
+    }
+
+    #compareSection { display: none; }
+
+    .compare-header {
+      font-size: 11px;
+      color: #f84;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Mode badge ── */
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 2px;
+      background: #f84;
+      color: #000;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Vinyl WASM Dev Harness</h1>
+  <span id="deviceInfo">—</span>
+  <span id="modeBadge"></span>
+</div>
+
+<div class="layout">
+
+  <!-- Left: controls -->
+  <div class="left">
+    <div id="dropzone">
+      Drop image here<br/>or click to choose
+    </div>
+    <input type="file" id="fileInput" accept="image/*" />
+    <img id="preview" alt="preview" />
+    <button id="analyseBtn" disabled>Analyse</button>
+    <div id="status" class="status busy">Initialising…</div>
+  </div>
+
+  <!-- Right: results -->
+  <div class="right">
+
+    <div class="panel">
+      <h2>Timings</h2>
+      <pre id="timings">—</pre>
+    </div>
+
+    <div class="panel">
+      <h2>Tracks</h2>
+      <pre id="tracks">—</pre>
+    </div>
+
+    <div class="panel" id="compareSection">
+      <div class="compare-header">⚡ Compare Mode — backend vs WASM</div>
+      <pre id="compareReport">—</pre>
+    </div>
+
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+<script>
+  // Show compare badge if in compare mode
+  if (location.search.includes('mode=compare')) {
+    document.getElementById('modeBadge').innerHTML =
+      '<span class="badge">COMPARE</span>';
+  }
+</script>
+</body>
+</html>

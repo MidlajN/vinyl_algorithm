@@ -8,7 +8,7 @@ import { useVinyl } from '../hooks/useVinyl'
 
 export function PreviewPage() {
   const navigate = useNavigate()
-  const { capturedImage, clearCapturedImage } = useVinyl()
+  const { analyze, capturedImage, clearCapturedImage } = useVinyl()
 
   if (!capturedImage) {
     return <Navigate to="/" replace />
@@ -17,6 +17,11 @@ export function PreviewPage() {
   function retake() {
     clearCapturedImage()
     navigate('/')
+  }
+
+  function startAnalysis() {
+    void analyze().catch(() => undefined)
+    navigate('/analyzing')
   }
 
   return (
@@ -42,7 +47,7 @@ export function PreviewPage() {
         <Button className="flex-1" variant="secondary" icon={<RotateCcw size={17} />} onClick={retake}>
           Retake
         </Button>
-        <Button className="flex-[1.4]" icon={<Sparkles size={17} />} onClick={() => navigate('/analyzing')}>
+        <Button className="flex-[1.4]" icon={<Sparkles size={17} />} onClick={startAnalysis}>
           Analyze Vinyl
         </Button>
       </BottomActionBar>

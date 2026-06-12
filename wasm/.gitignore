@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# opencv.js is large (~10MB) — restored by `npm install` via postinstall
+public/opencv.js

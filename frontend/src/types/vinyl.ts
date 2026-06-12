@@ -18,6 +18,14 @@ export type VinylAnalysisResponse = {
   tracks: Track[]
 }
 
+export type VinylResult = VinylAnalysisResponse
+
+export type AnalysisProgress = {
+  stage: string
+  stageIndex: number
+  totalStages: number
+}
+
 export type CapturedImage = {
   file: File
   url: string

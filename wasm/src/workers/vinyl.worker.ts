@@ -35,6 +35,7 @@ async function loadOpenCV(): Promise<unknown> {
   // worker look like a classic worker to Emscripten.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (self as any).cv = undefined;
+  // eslint-disable-next-line no-new-func
   Function(
     `var self = this;\n` +
     `var importScripts = this.importScripts || function() {};\n` +
