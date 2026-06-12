@@ -14,10 +14,10 @@ venv/
 !.env.example
 
 # Debug/generated artifacts
-debug/*.png
-debug/*.jpg
-debug/*.jpeg
-debug/*.webp
+# debug/*.png
+# debug/*.jpg
+# debug/*.jpeg
+# debug/*.webp
 
 uploads 
 
