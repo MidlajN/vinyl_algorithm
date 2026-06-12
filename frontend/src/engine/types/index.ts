@@ -61,6 +61,7 @@ export interface AnalysisResult {
   separators: Separator[];
   ppm: number;
   timings: Record<string, number>;
+  debug?: AnalysisDebugReport;
   error?: string;
 }
 
@@ -69,6 +70,23 @@ export interface AnalysisConfig {
   // Override adaptive resize (px on longest side).
   // If omitted, adaptiveTargetSize() decides.
   maxSize?: number;
+}
+
+export interface AnalysisDebugImage {
+  name: string;
+  width: number;
+  height: number;
+  dataUrl: string;
+}
+
+export interface AnalysisDebugStage {
+  stage: string;
+  data: Record<string, unknown>;
+}
+
+export interface AnalysisDebugReport {
+  stages: AnalysisDebugStage[];
+  images: AnalysisDebugImage[];
 }
 
 // ─── Worker Protocol ──────────────────────────────────────────────────────────

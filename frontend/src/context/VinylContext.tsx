@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { DEFAULT_THEME, THEME_STORAGE_KEY, THEMES } from '../constants/theme'
+import { isVinylDebugEnabled, publishVinylDebugResult, type AnalysisConfig } from '../engine'
 import { analyseVinyl } from '../services/vinyl.service'
 import type { AnalysisProgress, CapturedImage, Theme, VinylResult } from '../types/vinyl'
 
@@ -24,7 +25,7 @@ type VinylContextValue = {
   setCapturedImage: (file: File, source: CapturedImage['source']) => void
   clearCapturedImage: () => void
   startAnalysis: () => void
-  analyze: () => Promise<void>
+  analyze: (config?: AnalysisConfig) => Promise<void>
   setAnalysisResult: (result: VinylResult | null) => void
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
@@ -66,6 +67,18 @@ export function VinylProvider({ children }: { children: ReactNode }) {
   }, [capturedImage?.url])
 
   const setCapturedImage = useCallback((file: File, source: CapturedImage['source']) => {
+    if (isVinylDebugEnabled()) {
+      console.groupCollapsed('[vinyl-debug] upload')
+      console.table({
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+        lastModified: file.lastModified,
+        source,
+      })
+      console.groupEnd()
+    }
+
     setCapturedImageState((currentImage) => {
       if (currentImage?.url) {
         URL.revokeObjectURL(currentImage.url)
@@ -111,7 +124,7 @@ export function VinylProvider({ children }: { children: ReactNode }) {
     setIsAnalyzing(false)
   }, [])
 
-  const analyze = useCallback(async () => {
+  const analyze = useCallback(async (config?: AnalysisConfig) => {
     if (!capturedImage) {
       throw new Error('No vinyl image selected')
     }
@@ -122,11 +135,16 @@ export function VinylProvider({ children }: { children: ReactNode }) {
     setError(undefined)
 
     try {
-      const nextResult = await analyseVinyl(capturedImage.file, (stage, stageIndex, totalStages) => {
-        setAnalysisProgress({ stage, stageIndex, totalStages })
-      })
+      const nextResult = await analyseVinyl(
+        capturedImage.file,
+        (stage, stageIndex, totalStages) => {
+          setAnalysisProgress({ stage, stageIndex, totalStages })
+        },
+        config,
+      )
 
       setAnalysisResultState(nextResult)
+      publishVinylDebugResult(nextResult)
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Vinyl analysis failed'
       setError(message)

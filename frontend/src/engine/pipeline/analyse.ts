@@ -29,6 +29,18 @@ import { detectTrackSeparators } from './separators';
 import { buildTracks }           from './tracks';
 import { calculateServoAngle, PIVOT_TO_SPINDLE_MM, ARM_LENGTH_MM, SERVO_ZERO_OFFSET_DEG }
   from './tonearm';
+import {
+  addMatDebugImage,
+  addOverlayDebugImage,
+  addPlayableMaskDebugImage,
+  createDebugCollector,
+  debugStage,
+  drawCircle,
+  geometryDebug,
+  labelDebug,
+  profileStats,
+  separatorDebug,
+} from './debug';
 
 type ProgressFn = (stage: string, idx: number, total: number) => void;
 const TOTAL_STAGES = 22;
@@ -49,12 +61,13 @@ function emptyMat(cv: any): any {
 export async function runPipeline(
   cv: any,
   imageData: ImageData,
-  _config: AnalysisConfig,
+  config: AnalysisConfig,
   onProgress: ProgressFn = () => {},
 ): Promise<AnalysisResult> {
   const timer = new PipelineTimer();
   timer.mark('total');
   const stub = Boolean(cv._stub);
+  const debug = createDebugCollector(Boolean(config.debug));
 
   // ── 1: Load ───────────────────────────────────────────────────────────────
   onProgress('load_image', 0, TOTAL_STAGES);
@@ -62,6 +75,13 @@ export async function runPipeline(
   const src = cv.matFromImageData(imageData);
   try {
     if (!stub && src.empty()) throw new Error('Image failed to load into cv.Mat');
+    debugStage(debug, 'load_image', {
+      imageDataWidth: imageData.width,
+      imageDataHeight: imageData.height,
+      matWidth: src.cols,
+      matHeight: src.rows,
+    });
+    await addMatDebugImage(debug, '01-original', src);
     timer.end('load_image');
 
     // ── 2: Preprocess ────────────────────────────────────────────────────
@@ -72,6 +92,11 @@ export async function runPipeline(
     try {
       if (!stub && (gray.rows < 200 || gray.cols < 200))
         throw new Error(`Image too small: ${gray.cols}×${gray.rows}`);
+      debugStage(debug, 'preprocess', {
+        width: gray.cols,
+        height: gray.rows,
+      });
+      await addMatDebugImage(debug, '02-preprocessed', gray);
       timer.end('preprocess');
 
       // ── 3: Outer ellipse ─────────────────────────────────────────────
@@ -79,6 +104,7 @@ export async function runPipeline(
       timer.mark('detect_outer_ellipse');
       const outer0 = stub ? stubOuter(imageData.width, imageData.height)
                            : detectOuterEllipse(cv, gray);
+      debugStage(debug, 'outer', geometryDebug(outer0));
       timer.end('detect_outer_ellipse');
 
       // ── 4: Crop to disc ──────────────────────────────────────────────
@@ -88,6 +114,13 @@ export async function runPipeline(
         ? { cropped: src, outer: outer0 }
         : cropToDisc(cv, src, outer0, 20);
       try {
+        debugStage(debug, 'crop', {
+          croppedWidth: cropped.cols,
+          croppedHeight: cropped.rows,
+          localOuterCenter: croppedOuter.center,
+          radiusPx: croppedOuter.radiusPx,
+        });
+        await addMatDebugImage(debug, '03-cropped', cropped);
         timer.end('crop_to_disc');
 
         // ── 5: Rectify ───────────────────────────────────────────────
@@ -95,6 +128,18 @@ export async function runPipeline(
         timer.mark('rectify_disc');
         const rectified = stub ? cropped : rectifyDisc(cv, cropped, croppedOuter);
         try {
+          debugStage(debug, 'rectification', {
+            sourceWidth: cropped.cols,
+            sourceHeight: cropped.rows,
+            rectifiedWidth: rectified.cols,
+            rectifiedHeight: rectified.rows,
+            center: croppedOuter.center,
+            majorRadiusPx: croppedOuter.majorRadiusPx,
+            minorRadiusPx: croppedOuter.minorRadiusPx,
+            rotation: croppedOuter.angle,
+            scaleY: croppedOuter.majorRadiusPx / croppedOuter.minorRadiusPx,
+          });
+          await addMatDebugImage(debug, '04-rectified', rectified);
           timer.end('rectify_disc');
 
           // ── 6: Preprocess rectified ──────────────────────────────
@@ -109,6 +154,7 @@ export async function runPipeline(
             onProgress('detect_outer_ellipse_rectified', 6, TOTAL_STAGES);
             timer.mark('detect_outer_ellipse_rectified');
             let outer = stub ? croppedOuter : detectOuterEllipse(cv, grayRect);
+            debugStage(debug, 'outer_rectified', geometryDebug(outer));
             timer.end('detect_outer_ellipse_rectified');
 
             // ── 8: Normalize (pass 1) ────────────────────────────
@@ -116,6 +162,10 @@ export async function runPipeline(
             timer.mark('normalize');
             const norm1 = stub ? emptyMat(cv) : normalizeVinyl(cv, rectified, outer);
             try {
+              debugStage(debug, 'normalize', {
+                normalizedWidth: norm1.cols,
+                normalizedHeight: norm1.rows,
+              });
               timer.end('normalize');
 
               // ── 9: Label ring (pass 1) ───────────────────────
@@ -124,12 +174,24 @@ export async function runPipeline(
               const label1 = stub
                 ? { center: outer.center, radiusPx: outer.radiusPx * (50 / 152.4), score: 0, leftTransition: 0, rightTransition: 0 }
                 : detectLabelRing(cv, norm1, outer);
+              debugStage(debug, 'label_initial', labelDebug(label1, outer));
               timer.end('detect_label_ring');
 
               // ── 10: Refine geometry (pass 1) ─────────────────
               onProgress('refine_geometry', 9, TOTAL_STAGES);
               timer.mark('refine_geometry');
               const refined1 = refineGeometry(outer, label1);
+              debugStage(debug, 'refine_geometry', {
+                centerX: refined1.centerX,
+                centerY: refined1.centerY,
+                expectedLabelRadiusPx: refined1.expectedLabelRadiusPx,
+                detectedLabelRadiusPx: refined1.detectedLabelRadiusPx,
+                scaleFactor: refined1.scaleFactor,
+                translationDx: refined1.translationDx,
+                translationDy: refined1.translationDy,
+                centerErrorPx: refined1.centerErrorPx,
+                geometryConfidence: refined1.geometryConfidence,
+              });
               timer.end('refine_geometry');
 
               // ── 11: Micro-rectify ────────────────────────────
@@ -137,6 +199,14 @@ export async function runPipeline(
               timer.mark('refine_rectification');
               const microRect = stub ? rectified : refineRectification(cv, rectified, outer, refined1);
               try {
+                debugStage(debug, 'micro_rectification', {
+                  sourceWidth: rectified.cols,
+                  sourceHeight: rectified.rows,
+                  microRectifiedWidth: microRect.cols,
+                  microRectifiedHeight: microRect.rows,
+                  translationDx: refined1.translationDx,
+                  translationDy: refined1.translationDy,
+                });
                 timer.end('refine_rectification');
 
                 // ── 12: Preprocess micro ─────────────────────
@@ -151,6 +221,7 @@ export async function runPipeline(
                   onProgress('detect_outer_ellipse_micro', 12, TOTAL_STAGES);
                   timer.mark('detect_outer_ellipse_micro');
                   const microOuter = stub ? outer : detectOuterEllipse(cv, grayMicro);
+                  debugStage(debug, 'outer_micro', geometryDebug(microOuter));
                   timer.end('detect_outer_ellipse_micro');
 
                   // Update outer geometry from micro pass
@@ -164,6 +235,13 @@ export async function runPipeline(
                   const spindle = stub
                     ? { x: outer.center[0], y: outer.center[1], radiusPx: outer.radiusPx / 152.4 * 3.62, score: 0 }
                     : detectSpindle(cv, microRect, spindleCenter, outer);
+                  debugStage(debug, 'spindle', {
+                    center: [spindle.x, spindle.y],
+                    centerX: spindle.x,
+                    centerY: spindle.y,
+                    radiusPx: spindle.radiusPx,
+                    score: spindle.score,
+                  });
                   timer.end('detect_spindle');
 
                   // ── 15: Normalize (pass 2, final) ────────
@@ -171,6 +249,11 @@ export async function runPipeline(
                   timer.mark('normalize_final');
                   const norm2 = stub ? emptyMat(cv) : normalizeVinyl(cv, microRect, outer);
                   try {
+                    debugStage(debug, 'normalize_final', {
+                      normalizedWidth: norm2.cols,
+                      normalizedHeight: norm2.rows,
+                    });
+                    await addMatDebugImage(debug, '05-normalized', norm2);
                     timer.end('normalize_final');
 
                     // ── 16: Label ring (pass 2) ──────────
@@ -179,6 +262,7 @@ export async function runPipeline(
                     const label2 = stub
                       ? label1
                       : detectLabelRing(cv, norm2, outer);
+                    debugStage(debug, 'label', labelDebug(label2, outer));
                     timer.end('detect_label_ring_final');
 
                     // ── 17: Refine geometry (pass 2) ─────
@@ -206,6 +290,25 @@ export async function runPipeline(
                         outer, spindle, label2,
                       );
                     }
+                    debugStage(debug, 'playable', {
+                      innerPlayableRadiusPx: playable.innerPlayableRadiusPx,
+                      outerPlayableRadiusPx: playable.outerPlayableRadiusPx,
+                    });
+                    await addPlayableMaskDebugImage(
+                      debug,
+                      '06-playable-mask',
+                      norm2.cols,
+                      norm2.rows,
+                      spindle,
+                      playable,
+                    );
+                    await addOverlayDebugImage(debug, '07-radial-boundary-overlay', norm2, (context) => {
+                      drawCircle(context, outer.center[0], outer.center[1], outer.radiusPx, '#00aaff', 3);
+                      drawCircle(context, label2.center[0], label2.center[1], label2.radiusPx, '#ffaa00', 3);
+                      drawCircle(context, spindle.x, spindle.y, spindle.radiusPx, '#ff00ff', 3);
+                      drawCircle(context, spindle.x, spindle.y, playable.innerPlayableRadiusPx, '#00ff66', 2);
+                      drawCircle(context, spindle.x, spindle.y, playable.outerPlayableRadiusPx, '#00ff66', 2);
+                    });
                     timer.end('detect_playable_boundaries');
 
                     // ── 19: Radial texture profile ───────
@@ -225,12 +328,21 @@ export async function runPipeline(
                         playable.outerPlayableRadiusPx,
                       );
                     }
+                    debugStage(debug, 'profile', profileStats(profile));
                     timer.end('build_radial_texture_profile');
 
                     // ── 20: Track separator detection ────
                     onProgress('detect_track_separators', 19, TOTAL_STAGES);
                     timer.mark('detect_track_separators');
                     const sepResult = detectTrackSeparators(profile, playable, ppm);
+                    debugStage(debug, 'separators', separatorDebug(sepResult.separators, sepResult.count + 1));
+                    await addOverlayDebugImage(debug, '08-separator-overlay', norm2, (context) => {
+                      drawCircle(context, spindle.x, spindle.y, playable.innerPlayableRadiusPx, '#00ff66', 2);
+                      drawCircle(context, spindle.x, spindle.y, playable.outerPlayableRadiusPx, '#00ff66', 2);
+                      for (const separator of sepResult.separators) {
+                        drawCircle(context, spindle.x, spindle.y, separator.radiusPx, '#ff3333', 2);
+                      }
+                    });
                     timer.end('detect_track_separators');
 
                     // ── 21: Build tracks + servo angles ──
@@ -245,6 +357,19 @@ export async function runPipeline(
                         SERVO_ZERO_OFFSET_DEG,
                       ) * 100) / 100;
                     }
+                    debugStage(debug, 'tracks', {
+                      trackCount: tracks.length,
+                      tracks: tracks.map((track) => ({
+                        trackNumber: track.trackNumber,
+                        startRadiusPx: track.startRadiusPx,
+                        endRadiusPx: track.endRadiusPx,
+                        startRadiusMm: track.startRadiusMm,
+                        endRadiusMm: track.endRadiusMm,
+                        widthPx: track.widthPx,
+                        widthMm: track.widthMm,
+                        servoAngleDeg: track.servoAngleDeg,
+                      })),
+                    });
                     timer.end('build_tracks');
 
                     timer.end('total');
@@ -255,6 +380,7 @@ export async function runPipeline(
                       separators: sepResult.separators,
                       ppm,
                       timings:    timer.getTimings(),
+                      debug,
                     };
                   } finally {
                     if (!stub) norm2.delete();

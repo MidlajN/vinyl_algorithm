@@ -1,3 +1,5 @@
+import type { AnalysisDebugReport } from '../engine/types'
+
 export type Theme = 'dark' | 'light'
 
 export type VinylMode = 'generated' | 'image'
@@ -16,6 +18,7 @@ export type Track = {
 export type VinylAnalysisResponse = {
   success: boolean
   tracks: Track[]
+  debug?: AnalysisDebugReport
 }
 
 export type VinylResult = VinylAnalysisResponse

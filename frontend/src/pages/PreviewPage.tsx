@@ -4,6 +4,7 @@ import { BottomActionBar } from '../components/layout/BottomActionBar'
 import { ImagePreview } from '../components/upload/ImagePreview'
 import { Button } from '../components/ui/Button'
 import { IconButton } from '../components/ui/IconButton'
+import { isVinylDebugEnabled } from '../engine'
 import { useVinyl } from '../hooks/useVinyl'
 
 export function PreviewPage() {
@@ -20,7 +21,7 @@ export function PreviewPage() {
   }
 
   function startAnalysis() {
-    void analyze().catch(() => undefined)
+    void analyze(isVinylDebugEnabled() ? { debug: true } : undefined).catch(() => undefined)
     navigate('/analyzing')
   }
 

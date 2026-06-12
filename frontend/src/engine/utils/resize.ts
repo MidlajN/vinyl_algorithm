@@ -18,11 +18,11 @@ export function detectDeviceCapability(): DeviceCapability {
 
   let targetLongestSide: number;
   if (memoryGB >= 8 && cpuCores >= 8) {
-    targetLongestSide = 1600; // high-end
+    targetLongestSide = 3200; // high-end
   } else if (memoryGB >= 4) {
-    targetLongestSide = 1200; // mid-range
+    targetLongestSide = 2400; // mid-range
   } else {
-    targetLongestSide = 1000; // low-end
+    targetLongestSide = 2000; // low-end
   }
 
   return { memoryGB, cpuCores, targetLongestSide };

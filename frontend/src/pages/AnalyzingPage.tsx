@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { AnalysisLoader } from '../components/loading/AnalysisLoader'
 import { LoaderStep } from '../components/loading/LoaderStep'
 import { Button } from '../components/ui/Button'
+import { isVinylDebugEnabled } from '../engine'
 import { useVinyl } from '../hooks/useVinyl'
 import type { AnalysisError } from '../types/vinyl'
 
@@ -41,7 +42,7 @@ export function AnalyzingPage() {
     }
 
     hasStarted.current = true
-    void analyze().catch(() => undefined)
+    void analyze(isVinylDebugEnabled() ? { debug: true } : undefined).catch(() => undefined)
   }, [analysisResult, analyze, capturedImage, isAnalyzing])
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export function AnalyzingPage() {
               icon={<RotateCcw size={17} />}
               onClick={() => {
                 hasStarted.current = false
-                void analyze().catch(() => undefined)
+                void analyze(isVinylDebugEnabled() ? { debug: true } : undefined).catch(() => undefined)
               }}
             >
               Retry
