@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "sweep-11bcd"
+  },
+  "targets": {
+    "sweep-11bcd": {
+      "hosting": {
+        "app": [
+          "fabsweep"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
